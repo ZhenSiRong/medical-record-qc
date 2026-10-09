@@ -92,6 +92,17 @@
 `status` 取值（病案状态机，前端可做标签色）：`NOT_RECYCLED 未回收` `RECYCLED 已回收待编目` `CATALOGED 已编目` `ARCHIVED 已归档在架` `BORROWED 借出` `SEALED 封存`
 → `data: { list: [病案], total }`
 
+> ⚠️ **状态投影（前端契约，2026-10-09 修正）**：`frontend/js/api-store.js` 把后端枚举投影成界面中文词，其中 **`RECYCLED` 与 `ARCHIVED` 曾经都被投影成「已归档」**，导致「待编目队列」误按「已归档」筛选、把已归档在架的病案也装了进来（它们早已编完目）。现行投影为：
+>
+> | 后端 `status` | 界面中文 |
+> |---|---|
+> | `NOT_RECYCLED` | 未归档 |
+> | **`RECYCLED`** | **待编目**（待编目队列筛的就是它） |
+> | `ARCHIVED` | 已归档（在架，可借阅） |
+> | `CATALOGED` / `BORROWED` / `SEALED` | 已编目 |
+>
+> **借阅可选集合**只应包含 `ARCHIVED`（后端 `POST /api/borrows` 要求 status=ARCHIVED，否则 409）。
+
 **病案字段**：`id, recordNo, patientName, gender, birthDate, hospitalNo, deptId, deptName, doctorName, admitTime, dischargeTime, status, shelfId, archivedAt, catalogedAt, remark, createdAt, updatedAt`
 > 注意：`archivedAt`（归档上架时间）与 `catalogedAt`（完成编目时间）是**归档及时率统计的口径来源**，前端做时间轴/及时率展示时需要。
 
@@ -242,7 +253,25 @@ body 为病案字段子集；`recordNo` 留空自动生成（`BA` + `yyyyMMddHHm
 ### GET /api/front-pages/:recordId
 → `data: { frontPage: 首页, qcResults: [质控项] }`（`qcResults` 按 `id DESC`；**404** 表示该病案尚无首页）
 
-**首页字段**：`id, recordId, patientName, gender, birthDate, hospitalNo, deptName, doctorName, admitTime, dischargeTime, actualDays, admitDiagnosis, dischargeDiagnosis, mainDiagnosisCode, otherDiagnosisCodes, mainOperationCode, otherOperationCodes, totalCost, extJson, externalCauseCode, externalCauseName, newbornBirthWeight, newbornGestationalWeeks, status, createdAt, updatedAt`
+**首页字段**：`id, recordId, patientName, gender, birthDate, hospitalNo, deptName, doctorName, admitTime, dischargeTime, actualDays, admitDiagnosis, dischargeDiagnosis, mainDiagnosisCode, otherDiagnosisCodes, otherDiagnosisFlags, mainOperationCode, otherOperationCodes, totalCost, extJson, externalCauseCode, externalCauseName, newbornBirthWeight, newbornGestationalWeeks, status, createdAt, updatedAt`
+
+**其他诊断的严重度标记（ADR-0002，2026-10-09 新增）**：
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `otherDiagnosisCodes` | string | 其他诊断编码，**半角逗号分隔**（已存在） |
+| `otherDiagnosisFlags` | string | **与上面按逗号位置一一对应的严重度标记串**，取值 `0` 无 / `C` CC / `M` MCC；空串 = 未标记 |
+
+> ⚠️ **这是等长对齐的隐式契约**（ADR-0002 §5）：
+> - `otherDiagnosisCodes` 内**不允许重复编码**——重复会让"按位置对应"失去意义，解析层会拒绝
+> - **两侧长度必须一致**（按槽位数比较，空槽也要占位）；长度不等时解析层拒绝，**不会**静默补 `0` 对齐
+> - 空槽与其 flag **成对丢弃**，顺序不变
+> - `flags` 整串为空时按"全部无严重度"处理（向后兼容历史数据，历史 57 份全空）
+> - 非法标记值（如 `X`、`c`）**报错**，不降级为 `0`：空串是"没填"，非法值是"填错了"，二者语义不同
+> - 编码做 `ToUpper+TrimSpace` 规范化；**标记串不做大小写宽容**
+> - 只有显式列入 `Save` 白名单的字段才会写入（本字段已列入）
+>
+> **两个"无"不要混**：字段层的"无"是 `0`（与标记串同一套字面量）；展示层的分层结果用 `NONE`（见 `service/other_diagnosis.go` 的 `SeverityLevel`，返回 `MCC`/`CC`/`NONE`）。前端展示请以分层结果为准。
 
 **条件必填真字段（D3，2026-10-09 新增）**：
 

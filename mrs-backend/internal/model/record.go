@@ -63,10 +63,22 @@ type MedFrontPage struct {
 	DischargeDiagnosis  string     `json:"dischargeDiagnosis"`
 	MainDiagnosisCode   string     `json:"mainDiagnosisCode"`
 	OtherDiagnosisCodes string     `json:"otherDiagnosisCodes"`
-	MainOperationCode   string     `json:"mainOperationCode"`
-	OtherOperationCodes string     `json:"otherOperationCodes"`
-	TotalCost           float64    `json:"totalCost"`
-	ExtJSON             string     `json:"extJson" gorm:"column:ext_json"`
+	// OtherDiagnosisFlags 其他诊断的严重度标记串（ADR-0002 §5，批次 B）。
+	//
+	// 与 OtherDiagnosisCodes **按逗号位置一一对应**（等长槽位串，ADR §5 的"索引对齐"契约）：
+	// 第 i 个标记描述第 i 个编码。取值：'0' 无严重度 / 'C' CC（并发症·合并症）/
+	// 'M' MCC（主要并发症·合并症）——与 service.SeverityFlag* 常量同口径；
+	// 空串表示未标记，按"全部无严重度"处理（历史数据兼容，见 service.ParseOtherDiagnoses 第 5 条）。
+	//
+	// **硬约束：OtherDiagnosisCodes 内不允许重复编码**——否则同一编码对应两个标记，
+	// 索引对齐失效（这正是等长标记串这种表达方式的代价）。解析层
+	// service.ParseOtherDiagnoses / FormatOtherDiagnoses 会校验并拒绝重复
+	// （返回 service.ErrOtherDiagnosisDuplicate），读写这两个字段一律经由该层。
+	OtherDiagnosisFlags string  `json:"otherDiagnosisFlags"`
+	MainOperationCode   string  `json:"mainOperationCode"`
+	OtherOperationCodes string  `json:"otherOperationCodes"`
+	TotalCost           float64 `json:"totalCost"`
+	ExtJSON             string  `json:"extJson" gorm:"column:ext_json"`
 
 	// ---------- 条件必填真字段（缺口 D3，2026-10-09）----------
 	// 依据《住院病案首页数据采集质量与接口标准（2020版）》：损伤中毒（主诊断 S/T 编码）时"外部原因"

@@ -219,6 +219,7 @@
       '        <select class="select" style="width:126px" v-model="filters.status">',
       '          <option value="all">全部状态</option>',
       '          <option value="未归档">未归档</option>',
+      '          <option value="待编目">待编目</option>',
       '          <option value="已归档">已归档</option>',
       '          <option value="已编目">已编目</option>',
       '        </select>',

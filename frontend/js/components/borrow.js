@@ -66,9 +66,11 @@
         reason: '临床病例讨论', days: 14, remark: ''
       });
 
-      // 只有已归档及以上的病案才可借阅
+      // 仅「已归档在架」(ARCHIVED → 界面「已归档」) 可借阅——后端 Apply 要求 status=ARCHIVED。
+      // 注意：不要用 `status !== '未归档'`——那会连带把「待编目」(RECYCLED) 与「已编目」(CATALOGED)
+      // 也列出来，选中后端会返回 409「仅已归档(在架)的病案可申请借阅」。
       var borrowable = computed(function () {
-        return S.model.records.filter(function (r) { return r.status !== '未归档'; });
+        return S.model.records.filter(function (r) { return r.status === '已归档'; });
       });
 
       function openApply() {

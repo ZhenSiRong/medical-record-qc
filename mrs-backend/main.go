@@ -57,11 +57,18 @@ func main() {
 		log.Fatalf("种子数据灌入失败: %v", err)
 	}
 	// 扩展功能种子（幂等：已存在则跳过）
+	if err := seed.SeedIcdExt(db); err != nil {
+		log.Printf("[seed] ICD 编码库补充失败(不影响启动): %v", err)
+	}
 	if err := handler.SeedQcExt(db); err != nil {
 		log.Printf("[seed] 质控扩展种子失败(不影响启动): %v", err)
 	}
 	if err := handler.SeedBranchExt(db); err != nil {
 		log.Printf("[seed] 扩展功能种子失败(不影响启动): %v", err)
+	}
+	// 科室医师（deptuser）演示数据：让该账号在演示库里有可测的病案（幂等）
+	if err := seed.SeedDeptUserDemoData(db); err != nil {
+		log.Printf("[seed] 科室医师演示数据失败(不影响启动): %v", err)
 	}
 
 	ca := cache.New(cfg.Redis.Addr, cfg.Redis.Password, cfg.Redis.DB)

@@ -51,7 +51,7 @@
 
       var todos = computed(function () {
         var o = ov.value;
-        var toCatalog = S.model.records.filter(function (r) { return r.status === '已归档'; }).length;
+        var toCatalog = S.model.records.filter(function (r) { return r.status === '待编目'; }).length;
         return [
           { label: '待归档病案', value: o.pendingArchive, route: 'archive', tone: 'orange', hint: '出院后 7 日内需完成归档' },
           { label: '待编目病案', value: toCatalog, route: 'catalog', tone: 'blue', hint: '已完成归档，待赋予 ICD 编码' },

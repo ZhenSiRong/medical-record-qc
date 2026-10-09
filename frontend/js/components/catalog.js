@@ -21,11 +21,12 @@
       var kw = ref('');
       var search = ref('');
 
-      // 待编目队列：已归档但尚未编目
+      // 待编目队列：后端状态 RECYCLED（已回收待编目）→ 界面「待编目」
+      // 注意：不要筛「已归档」——那是 ARCHIVED（已归档在架），早已编完目，不属于待编目队列。
       var queue = computed(function () {
         return S.model.records
           .filter(function (r) {
-            if (r.status !== '已归档') return false;
+            if (r.status !== '待编目') return false;
             if (!search.value.trim()) return true;
             var k = search.value.trim().toLowerCase();
             return (r.mrNo + r.name + r.diagMain + r.dept).toLowerCase().indexOf(k) > -1;

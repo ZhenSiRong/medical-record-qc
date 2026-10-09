@@ -6,6 +6,7 @@
 # ---------- 运行时产物 ----------
 data/
 mrs-backend/report-out/
+mrs-backend/routes.actual.txt
 
 # ---------- 大体积本地工具与二进制（可重新下载，不入库） ----------
 tools/pg/
@@ -22,6 +23,7 @@ tools/enable-wsl2.log
 # ---------- Go 编译产物 ----------
 mrs-backend/mrs
 mrs-backend/mrs.exe
+mrs-backend/*.exe
 *.test
 
 # ---------- 编辑器与本地环境 ----------
@@ -36,6 +38,3 @@ __pycache__/
 
 # ---------- 临时文件 ----------
 *.tmp
-
-# ---------- 契约核对的一次性产物（由 go test -run TestDumpRoutes 重新生成） ----------
-mrs-backend/routes.actual.txt

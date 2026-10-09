@@ -65,9 +65,14 @@
   }
 
   /* ------------------------- 状态投影（后端枚举 → 界面中文词） ------------------------- */
+  // 注意：RECYCLED（已回收）与 ARCHIVED（已归档在架）是两个**不同**的后端状态，
+  // 早期版本把两者都投影成「已归档」，导致：
+  //   ①「待编目队列」按「已归档」筛选时，把已归档在架的病案也装了进来（业务上它们早已编完目）；
+  //   ② 界面看不出"待编目"与"在架"的区别。
+  // 现将 RECYCLED 正名为「待编目」（它就队列里的东西），ARCHIVED 保留「已归档」。
   var REC_PROJ = {
-    NOT_RECYCLED: '未归档', RECYCLED: '已归档',
-    CATALOGED: '已编目', ARCHIVED: '已编目', BORROWED: '已编目', SEALED: '已编目'
+    NOT_RECYCLED: '未归档', RECYCLED: '待编目',
+    CATALOGED: '已编目', ARCHIVED: '已归档', BORROWED: '已编目', SEALED: '已编目'
   };
   var BOR_PROJ = {
     APPLYING: '待审批', APPROVED: '已借出', /* 待借出中间态被「通过」链折叠 */
@@ -727,8 +732,10 @@
         .sort(function (a, b) { return b.value - a.value; });
     },
     byStatus: function () {
-      var order = ['已编目', '已归档', '未归档'];
-      var colors = { '已编目': '#1d6ef5', '已归档': '#12a15c', '未归档': '#d98b13' };
+      // 键名必须与 REC_PROJ 的投影值一致（RECYCLED→待编目、ARCHIVED→已归档），
+      // 否则该状态会被静默算成 0：历史上「已归档」(ARCHIVED) 就从未进入此图。
+      var order = ['待编目', '已归档', '已编目', '未归档'];
+      var colors = { '待编目': '#d98b13', '已归档': '#12a15c', '已编目': '#1d6ef5', '未归档': '#8a94a6' };
       return order.map(function (s) {
         return {
           name: s, color: colors[s],

@@ -81,7 +81,10 @@ func (h *FrontPageHandler) Save(c *gin.Context) {
 				"admit_time": req.AdmitTime, "discharge_time": req.DischargeTime, "actual_days": req.ActualDays,
 				"admit_diagnosis": req.AdmitDiagnosis, "discharge_diagnosis": req.DischargeDiagnosis,
 				"main_diagnosis_code": req.MainDiagnosisCode, "other_diagnosis_codes": req.OtherDiagnosisCodes,
-				"main_operation_code": req.MainOperationCode, "other_operation_codes": req.OtherOperationCodes,
+				// ADR-0002 §5（批次 B）其他诊断严重度标记串：与编码串等长对齐，
+				// 必须显式列入白名单，否则前端传了也写不进库（同 D3 的坑）。
+				"other_diagnosis_flags": req.OtherDiagnosisFlags,
+				"main_operation_code":   req.MainOperationCode, "other_operation_codes": req.OtherOperationCodes,
 				"total_cost": req.TotalCost, "ext_json": req.ExtJSON, "status": model.PageWaitQc,
 				// 缺口 D3（2026-10-09）条件必填真字段：必须显式列入白名单，否则前端传了也写不进库。
 				"external_cause_code": req.ExternalCauseCode, "external_cause_name": req.ExternalCauseName,

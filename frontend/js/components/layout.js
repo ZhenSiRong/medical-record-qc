@@ -109,7 +109,7 @@
       // 侧栏待办角标
       var badges = computed(function () {
         var recs = S.model.records;
-        var toCatalog = recs.filter(function (r) { return r.status === '已归档'; }).length;
+        var toCatalog = recs.filter(function (r) { return r.status === '待编目'; }).length;
         var borrowTodo = S.model.borrows.filter(function (b) {
           if (b.status === '待审批') return true;
           if (b.status === '已借出' && MRMS.util.diffDays(b.dueDate, MRMS.util.today()) > 0) return true;
