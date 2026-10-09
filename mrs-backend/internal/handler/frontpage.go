@@ -42,7 +42,7 @@ func (h *FrontPageHandler) Get(c *gin.Context) {
 }
 
 // Save 首页数据维护（upsert）。修正异常后重新保存会回到待质控，形成质控闭环。
-// 已上报的数据禁止修改。
+// 已上报的数据禁止修改；任务17：已归档/借出/封存的病案禁止修改并留痕变更历史。
 func (h *FrontPageHandler) Save(c *gin.Context) {
 	var req model.MedFrontPage
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -50,12 +50,17 @@ func (h *FrontPageHandler) Save(c *gin.Context) {
 		return
 	}
 	_, username, _ := middleware.CurrentUser(c)
-	_ = username
+	reason := changeReason(c)
 
 	err := h.DB.Transaction(func(tx *gorm.DB) error {
 		var rec model.MedRecord
 		if err := tx.First(&rec, c.Param("recordId")).Error; err != nil {
 			return errBiz("病案不存在")
+		}
+		// 任务17 归档锁定：已归档/借出/封存禁止修改首页数据。
+		// 依据《电子病历应用管理规范（试行）》（国卫办医发〔2017〕8号）：归档后原则上不得修改。
+		if isArchivedLocked(rec.Status) {
+			return errBiz("病案当前状态为「" + recStatusName(rec.Status) + "」，依据《电子病历应用管理规范（试行）》归档后原则上不得修改；如确需修改请走变更审批流程")
 		}
 		var existing model.MedFrontPage
 		has := tx.Where("record_id = ?", rec.ID).First(&existing).Error == nil
@@ -66,6 +71,10 @@ func (h *FrontPageHandler) Save(c *gin.Context) {
 			req.ID = existing.ID
 			req.RecordID = rec.ID
 			req.Status = model.PageWaitQc
+			// 任务17 变更留痕：记录修改前后快照
+			if err := recordRevision(tx, rec.ID, &existing, &req, username, reason); err != nil {
+				return err
+			}
 			return tx.Model(&existing).Omit("created_at").Updates(map[string]any{
 				"patient_name": req.PatientName, "gender": req.Gender, "birth_date": req.BirthDate,
 				"hospital_no": req.HospitalNo, "dept_name": req.DeptName, "doctor_name": req.DoctorName,
@@ -87,27 +96,30 @@ func (h *FrontPageHandler) Save(c *gin.Context) {
 	resp.OK(c, gin.H{"msg": "已保存并进入待质控"})
 }
 
-// Qc 执行质控：跑规则引擎，逐字段落异常标记，状态置 QC_PASSED / QC_REJECTED
+// Qc 执行质控：跑规则引擎，逐字段落异常标记，状态置 QC_PASSED / QC_REJECTED；
+// 同时返回质量评分与等级（任务16）。
 func (h *FrontPageHandler) Qc(c *gin.Context) {
 	var fp model.MedFrontPage
 	if err := h.DB.Where("record_id = ?", c.Param("recordId")).First(&fp).Error; err != nil {
 		resp.NotFound(c, "该病案尚无首页数据，请先维护首页")
 		return
 	}
-	results, err := service.RunQc(h.DB, &fp)
+	results, quality, err := service.RunQc(h.DB, &fp)
 	if err != nil {
 		resp.ServerErr(c, err)
 		return
 	}
-	resp.OK(c, gin.H{"status": fp.Status, "results": results})
+	resp.OK(c, gin.H{"status": fp.Status, "results": results, "quality": quality})
 }
 
-// MarkFixed 修正标记：异常修正后人工确认关闭该异常项
+// MarkFixed 修正标记：异常修正后人工确认关闭该异常项。
+// 语义上等同于走完退回返修闭环，故同步置 handle_status=CLOSED（任务5）。
 func (h *FrontPageHandler) MarkFixed(c *gin.Context) {
 	_, username, _ := middleware.CurrentUser(c)
 	now := ptrTime(time.Now())
 	res := h.DB.Model(&model.QcResult{}).Where("id = ?", c.Param("id")).Updates(map[string]any{
 		"fixed": true, "fixed_at": now, "fixed_by": username,
+		"handle_status": model.HandleClosed,
 	})
 	if res.Error != nil {
 		resp.ServerErr(c, res.Error)

@@ -97,4 +97,12 @@ func Register(r *gin.Engine, db *gorm.DB, ca *cache.Cache, cfg *config.Config) {
 	auth.GET("/stats/disease-top", stH.DiseaseTop)
 	auth.GET("/stats/borrow-monthly", stH.BorrowMonthly)
 	auth.POST("/stats/export", stH.Export)
+
+	// ===== 扩展功能（2026-10-09 新增，分两路并行实现后在此统一注册）=====
+	// 路 1 · 质控增强与闭环：条件必填、主诊断选择规则、主诊断-主手术匹配、
+	//        病历质量评分（甲乙丙）、质控退回返修闭环、归档锁定与变更留痕
+	handler.RegisterQcExt(auth, admin, db)
+	// 路 2 · 智能化与统计扩展：智能预编码推荐、DRG/DIP 预检、上报一致性核对、
+	//        归档及时率与超期催缴、上报 CSV 导出（符合国家接口标准骨架字段）
+	handler.RegisterBranchExt(auth, admin, db)
 }

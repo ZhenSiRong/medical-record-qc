@@ -37,6 +37,15 @@ func (h *CatalogHandler) Create(c *gin.Context) {
 	req.CoderName = username
 
 	err := h.DB.Transaction(func(tx *gorm.DB) error {
+		// 归档锁定（任务 17，依据《电子病历应用管理规范》国卫办医发〔2017〕8号）：
+		// 已归档/借出/封存的病案禁止再编目，避免归档后数据被改动
+		var rec model.MedRecord
+		if err := tx.First(&rec, req.RecordID).Error; err != nil {
+			return errBiz("病案不存在")
+		}
+		if isArchivedLocked(rec.Status) {
+			return errBiz("该病案已归档，编目已锁定（如需修正请走变更审批并留痕）")
+		}
 		// 编目类型 → 字典类型映射，编码存在性校验与质控 CODE_EXIST 同口径
 		dictType := model.Icd10
 		switch req.CatalogType {
@@ -76,6 +85,17 @@ func (h *CatalogHandler) Create(c *gin.Context) {
 }
 
 func (h *CatalogHandler) Delete(c *gin.Context) {
+	// 归档锁定（任务 17）：已归档/借出/封存病案的编目不可删除
+	var entry model.CatalogEntry
+	if err := h.DB.First(&entry, c.Param("id")).Error; err != nil {
+		resp.NotFound(c, "编目记录不存在")
+		return
+	}
+	var rec model.MedRecord
+	if err := h.DB.First(&rec, entry.RecordID).Error; err == nil && isArchivedLocked(rec.Status) {
+		resp.Conflict(c, "该病案已归档，编目已锁定，不可删除")
+		return
+	}
 	if err := h.DB.Delete(&model.CatalogEntry{}, c.Param("id")).Error; err != nil {
 		resp.ServerErr(c, err)
 		return

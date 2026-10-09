@@ -13,6 +13,7 @@ import (
 
 	"mrs/internal/cache"
 	"mrs/internal/config"
+	"mrs/internal/handler"
 	"mrs/internal/model"
 	"mrs/internal/router"
 	"mrs/internal/seed"
@@ -43,11 +44,21 @@ func main() {
 		&model.IcdDict{}, &model.IcdDictVersion{},
 		&model.BorrowOrder{}, &model.BorrowApproval{}, &model.BorrowReminder{},
 		&model.ReportBatch{}, &model.ReportItem{},
+		// 扩展功能新增表（2026-10-09）：质量评分、变更留痕、预编码规则、DRG 分组规则
+		&model.FrontPageQuality{}, &model.FrontPageRevision{},
+		&model.CodeSuggestionRule{}, &model.DrgGroupRule{},
 	); err != nil {
 		log.Fatalf("AutoMigrate 失败: %v", err)
 	}
 	if err := seed.RunIfEmpty(db); err != nil {
 		log.Fatalf("种子数据灌入失败: %v", err)
+	}
+	// 扩展功能种子（幂等：已存在则跳过）
+	if err := handler.SeedQcExt(db); err != nil {
+		log.Printf("[seed] 质控扩展种子失败(不影响启动): %v", err)
+	}
+	if err := handler.SeedBranchExt(db); err != nil {
+		log.Printf("[seed] 扩展功能种子失败(不影响启动): %v", err)
 	}
 
 	ca := cache.New(cfg.Redis.Addr, cfg.Redis.Password, cfg.Redis.DB)

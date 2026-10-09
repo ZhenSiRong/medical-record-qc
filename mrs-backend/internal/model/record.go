@@ -79,22 +79,41 @@ const (
 	QcRequired  = "REQUIRED"
 	QcLogic     = "LOGIC"
 	QcCodeExist = "CODE_EXIST"
+	// 以下两类为扩展规则（任务6，DRG/DIP 付费改革下的病案首页质控）：
+	QcDiagOpMatch  = "DIAG_OP_MATCH"  // 主诊断-主要手术匹配校验，防落 DRG 歧义组(QY)
+	QcMainDiagRule = "MAIN_DIAG_RULE" // 主要诊断选择合理性提示（WARN 级，不拦截）
 )
 
 type QcRule struct {
-	ID          int64     `json:"id" gorm:"primaryKey"`
-	RuleName    string    `json:"ruleName"`
-	RuleType    string    `json:"ruleType"`
-	TargetField string    `json:"targetField"` // MedFrontPage 结构体字段名
-	Expression  string    `json:"expression"`  // LOGIC: discharge_time>admit_time；CODE_EXIST: ICD10/ICD9CM3
-	ErrorLevel  string    `json:"errorLevel" gorm:"default:ERROR"`
-	Enabled     bool      `json:"enabled" gorm:"default:true"`
-	Remark      string    `json:"remark"`
-	CreatedAt   time.Time `json:"createdAt"`
-	UpdatedAt   time.Time `json:"updatedAt"`
+	ID          int64  `json:"id" gorm:"primaryKey"`
+	RuleName    string `json:"ruleName"`
+	RuleType    string `json:"ruleType"`
+	TargetField string `json:"targetField"` // MedFrontPage 结构体字段名
+	Expression  string `json:"expression"`  // LOGIC: discharge_time>admit_time；CODE_EXIST: ICD10/ICD9CM3
+	// ConditionExpr 条件表达式（任务4）：仅当条件成立时才执行本规则（用于"条件必填"）。
+	// 支持两种轻量写法：① 编码前缀匹配 `main_diagnosis_code LIKE 'S%'`；
+	// ② 复用 checkLogic 的表达式，如 `actual_days>0`、`discharge_time>admit_time`。
+	// 依据《住院病案首页数据采集质量与接口标准（2020版）》条件必填项要求。
+	ConditionExpr string    `json:"conditionExpr"`
+	ErrorLevel    string    `json:"errorLevel" gorm:"default:ERROR"`
+	Enabled       bool      `json:"enabled" gorm:"default:true"`
+	Remark        string    `json:"remark"`
+	CreatedAt     time.Time `json:"createdAt"`
+	UpdatedAt     time.Time `json:"updatedAt"`
 }
 
 func (QcRule) TableName() string { return "qc_rule" }
+
+// 质控结果处理状态机（任务5：质控退回返修闭环）
+// OPEN 待处理 → RETURNED 已退回临床 → RECTIFIED 已整改待复核
+// → CLOSED 复核通过（闭环完成）/ REJECTED_BY_QC 复核不通过退回临床
+const (
+	HandleOpen         = "OPEN"
+	HandleReturned     = "RETURNED"
+	HandleRectified    = "RECTIFIED"
+	HandleClosed       = "CLOSED"
+	HandleRejectedByQc = "REJECTED_BY_QC"
+)
 
 type QcResult struct {
 	ID         int64      `json:"id" gorm:"primaryKey"`
@@ -106,8 +125,18 @@ type QcResult struct {
 	Fixed      bool       `json:"fixed"`
 	FixedAt    *time.Time `json:"fixedAt"`
 	FixedBy    string     `json:"fixedBy"`
-	CreatedAt  time.Time  `json:"createdAt"`
-	UpdatedAt  time.Time  `json:"updatedAt"`
+	// 退回返修闭环字段（任务5）：操作痕迹（操作人/时间/意见）直接落在本表，避免额外关联查询。
+	HandleStatus  string     `json:"handleStatus" gorm:"default:OPEN"`
+	ReturnOpinion string     `json:"returnOpinion"` // 退回意见（病案室→临床）
+	ReturnedBy    string     `json:"returnedBy"`
+	ReturnedAt    *time.Time `json:"returnedAt"`
+	RectifiedBy   string     `json:"rectifiedBy"` // 临床整改人
+	RectifiedAt   *time.Time `json:"rectifiedAt"`
+	ReviewOpinion string     `json:"reviewOpinion"` // 复核意见（病案室）
+	ReviewedBy    string     `json:"reviewedBy"`
+	ReviewedAt    *time.Time `json:"reviewedAt"`
+	CreatedAt     time.Time  `json:"createdAt"`
+	UpdatedAt     time.Time  `json:"updatedAt"`
 }
 
 func (QcResult) TableName() string { return "front_page_qc_result" }

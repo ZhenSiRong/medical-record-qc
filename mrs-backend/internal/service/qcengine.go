@@ -12,20 +12,50 @@ import (
 	"mrs/internal/model"
 )
 
-// RunQc 质控规则引擎（调研节 8）：必填校验、逻辑校验、编码存在性校验。
+// RunQc 质控规则引擎（调研节 8）：必填校验（含条件必填）、逻辑校验、编码存在性校验、
+// 主诊断-主手术匹配（DRG）与主要诊断选择提示。
 // 结果逐字段落 front_page_qc_result（先清空该病案旧结果再写入），
-// ERROR 命中 → QC_REJECTED，仅 WARN → QC_PASSED。
+// ERROR 命中 → QC_REJECTED，仅 WARN → QC_PASSED（判定逻辑保持不变，扩展规则不回归）。
+// 同时计算质量评分与等级并落 front_page_quality（任务16）。
 // 规则清单由 qc_rule 表配置（来源：调研阶段三交付物），不硬编码。
-func RunQc(db *gorm.DB, fp *model.MedFrontPage) ([]model.QcResult, error) {
+func RunQc(db *gorm.DB, fp *model.MedFrontPage) ([]model.QcResult, *model.FrontPageQuality, error) {
 	var rules []model.QcRule
 	if err := db.Where("enabled = ?", true).Find(&rules).Error; err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	v := reflect.ValueOf(*fp)
 	var results []model.QcResult
 	errCount := 0
 	for _, rule := range rules {
+		// 任务4 条件必填：REQUIRED 规则配置了 condition_expr 时，条件不成立则跳过本规则。
+		if rule.RuleType == model.QcRequired &&
+			strings.TrimSpace(rule.ConditionExpr) != "" &&
+			!evalCondition(rule.ConditionExpr, fp) {
+			continue
+		}
+
+		// 任务6 扩展规则类型：不依赖单一字段反射，直接以整份首页数据判定。
+		if rule.RuleType == model.QcDiagOpMatch || rule.RuleType == model.QcMainDiagRule {
+			msg := ""
+			if rule.RuleType == model.QcDiagOpMatch {
+				msg = checkDiagOpMatch(fp)
+			} else {
+				msg = checkMainDiag(fp)
+			}
+			if msg == "" {
+				continue
+			}
+			if rule.ErrorLevel == "ERROR" {
+				errCount++
+			}
+			results = append(results, model.QcResult{
+				RecordID: fp.RecordID, RuleID: rule.ID, FieldName: rule.TargetField,
+				ErrorLevel: rule.ErrorLevel, ErrorMsg: msg, HandleStatus: model.HandleOpen,
+			})
+			continue
+		}
+
 		field := v.FieldByName(rule.TargetField)
 		var msg string
 		switch {
@@ -36,7 +66,7 @@ func RunQc(db *gorm.DB, fp *model.MedFrontPage) ([]model.QcResult, error) {
 		case rule.RuleType == model.QcCodeExist && !isBlank(field):
 			ok, err := codeExists(db, rule.Expression, field.String())
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			if !ok {
 				msg = "编码 " + field.String() + " 不存在于 " + rule.Expression + " 编码库"
@@ -52,8 +82,18 @@ func RunQc(db *gorm.DB, fp *model.MedFrontPage) ([]model.QcResult, error) {
 		}
 		results = append(results, model.QcResult{
 			RecordID: fp.RecordID, RuleID: rule.ID, FieldName: rule.TargetField,
-			ErrorLevel: rule.ErrorLevel, ErrorMsg: msg,
+			ErrorLevel: rule.ErrorLevel, ErrorMsg: msg, HandleStatus: model.HandleOpen,
 		})
+	}
+
+	// 任务16：质量评分 + 等级 + 单项否决，随质控结果一并落库。
+	score, gradeCode, gradeName, vetos := ScoreQc(results)
+	warnCount := len(results) - errCount
+	quality := &model.FrontPageQuality{
+		RecordID: fp.RecordID, Score: score, GradeCode: gradeCode, GradeName: gradeName,
+		ErrorCount: errCount, WarnCount: warnCount,
+		Vetoed: len(vetos) > 0, VetoReason: strings.Join(vetos, "；"),
+		ScoredAt: time.Now(),
 	}
 
 	err := db.Transaction(func(tx *gorm.DB) error {
@@ -65,6 +105,13 @@ func RunQc(db *gorm.DB, fp *model.MedFrontPage) ([]model.QcResult, error) {
 				return err
 			}
 		}
+		// 质量评分按 record_id 覆盖（先删后建，保证一条最新记录）
+		if err := tx.Where("record_id = ?", fp.RecordID).Delete(&model.FrontPageQuality{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Create(quality).Error; err != nil {
+			return err
+		}
 		status := model.PageQcPassed
 		if errCount > 0 {
 			status = model.PageQcRejected
@@ -73,9 +120,9 @@ func RunQc(db *gorm.DB, fp *model.MedFrontPage) ([]model.QcResult, error) {
 		return tx.Model(fp).Update("status", status).Error
 	})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return results, nil
+	return results, quality, nil
 }
 
 func isBlank(v reflect.Value) bool {
