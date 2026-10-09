@@ -146,6 +146,11 @@
       reportStatus: reportStatus,
       coder: fp.recordId ? '病案室' : '',
       catalogDate: d10(r.catalogedAt),
+      // 「是否编过目」以 catalogedAt 为准，**不能用当前状态**：
+      // 编目动作链在质控通过后会自动上架，病案随即变成 ARCHIVED（界面「已归档」），
+      // 若用 status==='已编目' 判断，刚编完目的病案会立刻从「最近完成的编目」与
+      // 「编目完成数」里消失，用户会以为没保存成功（实测：全库 51 份处于该状态）。
+      cataloged: !!r.catalogedAt,
       remark: r.remark || '',
       // 缺口 D3 条件必填字段：供病案详情抽屉展示（null 表示未采集，不显示为 0）
       externalCauseCode: fp.externalCauseCode || '',
@@ -633,7 +638,7 @@
       var exist = state.model.reports.find(function (x) { return x.id === period; });
       if (exist) return exist;
       var total = state.model.records.filter(function (r) {
-        return r.dischargeDate.slice(0, 7) === period && r.status === '已编目' && r.reportStatus !== '已上报';
+        return r.dischargeDate.slice(0, 7) === period && r.cataloged && r.reportStatus !== '已上报';
       }).length;
       var rep = {
         id: period, batchNo: 'SB' + period.replace('-', '') + '…', period: period, scope: '全院',
@@ -644,7 +649,7 @@
       (async function () {
         try {
           var ids = state.model.records.filter(function (r) {
-            return r.dischargeDate.slice(0, 7) === period && r.status === '已编目' && r.reportStatus !== '已上报';
+            return r.dischargeDate.slice(0, 7) === period && r.cataloged && r.reportStatus !== '已上报';
           }).map(function (r) { return r._rid; });
           var batch = await req('POST', '/report-batches', { period: period, recordIds: ids });
           await refetchReports();
@@ -685,7 +690,7 @@
       var rs = state.model.records;
       var total = rs.length;
       var archived = rs.filter(function (r) { return r.status !== '未归档'; }).length;
-      var cataloged = rs.filter(function (r) { return r.status === '已编目'; }).length;
+      var cataloged = rs.filter(function (r) { return r.cataloged; }).length;
       var n = new Date();
       var thisMonth = n.getFullYear() + '-' + String(n.getMonth() + 1).padStart(2, '0');
       var monthCount = rs.filter(function (r) { return r.dischargeDate.slice(0, 7) === thisMonth; }).length;
@@ -744,13 +749,14 @@
       });
     },
     reportProgress: function () {
-      var rs = state.model.records.filter(function (r) { return r.status === '已编目'; });
+      // 「已编目病案」以 catalogedAt 为准（编过目即算，含已自动上架的）
+      var rs = state.model.records.filter(function (r) { return r.cataloged; });
       var done = rs.filter(function (r) { return r.reportStatus === '已上报'; }).length;
       return { total: rs.length, done: done, rate: rs.length ? +(done / rs.length * 100).toFixed(1) : 0 };
     },
     validate: function (period) {
       var list = state.model.records.filter(function (r) {
-        return r.dischargeDate.slice(0, 7) === period && r.status === '已编目';
+        return r.dischargeDate.slice(0, 7) === period && r.cataloged;
       });
       var issues = [];
       list.forEach(function (r) {

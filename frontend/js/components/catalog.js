@@ -35,9 +35,14 @@
       });
 
       // 已编目（最近 8 条）
+      // ⚠️ 判据用 r.cataloged（= 后端 catalogedAt 是否有值），**不是**当前状态：
+      // 编目动作链在质控通过后会调 /archives/shelve 自动上架，病案状态立刻变为
+      // ARCHIVED（界面「已归档」）。若按 status === '已编目' 过滤，刚编完目的病案
+      // 会立刻从这个列表消失，用户会以为"保存没生效"（实测全库 51 份属此情形）。
+      // 本列表是"最近完成的编目"= 编目状态的流水，与病案当前是否在架无关。
       var done = computed(function () {
         return S.model.records
-          .filter(function (r) { return r.status === '已编目'; })
+          .filter(function (r) { return r.cataloged; })
           .sort(function (a, b) { return (b.catalogDate || '').localeCompare(a.catalogDate || ''); })
           .slice(0, 8);
       });
