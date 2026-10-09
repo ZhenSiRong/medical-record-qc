@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>功能补充清单与操作指南 · 病案管理系统</title>
+<style>
+  :root{--blue:#1898f8;--teal:#009088;--dark:#283038;--ink:#1f2733;--mut:#5b6b85;--line:#e3e9f4;--bg:#f4f7fc;
+        --ok:#12a15c;--ok-bg:#e7f7ef;--part:#d98b13;--part-bg:#fdf3e2;--miss:#d5433b;--miss-bg:#fdeceb;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:"Microsoft YaHei","PingFang SC",system-ui,sans-serif;color:var(--ink);background:var(--bg);line-height:1.75}
+  .wrap{max-width:1060px;margin:0 auto;padding:30px 20px 70px}
+  header.top{background:linear-gradient(135deg,#283038,#1d3a3a 60%,#009088 140%);color:#fff;border-radius:14px;padding:28px 32px}
+  header.top h1{font-size:24px}
+  header.top p{color:#c9d6e8;margin-top:8px;font-size:14px;max-width:820px}
+  .quick{display:flex;gap:14px;margin-top:18px;flex-wrap:wrap}
+  .quick a{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.28);color:#fff;text-decoration:none;
+           padding:8px 16px;border-radius:8px;font-size:13.5px}
+  .quick a:hover{background:rgba(255,255,255,.22)}
+  section{background:#fff;border:1px solid var(--line);border-radius:12px;padding:24px 28px;margin-top:20px}
+  section h2{font-size:18px;padding-left:11px;border-left:4px solid var(--teal);margin-bottom:6px}
+  section h2 .sub{font-size:12.5px;color:var(--mut);font-weight:400;margin-left:8px}
+  section > p.lead{font-size:13.5px;color:var(--mut);margin:10px 0 16px}
+  table{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+  th{background:#f0f4fb;font-size:12.5px;white-space:nowrap}
+  code{background:#eef2fa;padding:1px 6px;border-radius:4px;font-family:Consolas,monospace;font-size:12px;color:#0b5bd3}
+  .pill{display:inline-block;font-size:11.5px;padding:2px 9px;border-radius:11px;font-weight:700;white-space:nowrap}
+  .p-ok{background:var(--ok-bg);color:var(--ok)} .p-part{background:var(--part-bg);color:var(--part)}
+  .p-miss{background:var(--miss-bg);color:var(--miss)}
+  .step{border:1px solid var(--line);border-radius:10px;padding:18px 20px;margin:14px 0;background:#fcfdff}
+  .step h3{font-size:15.5px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .step h3 .num{background:var(--teal);color:#fff;width:22px;height:22px;border-radius:50%;display:inline-flex;
+                align-items:center;justify-content:center;font-size:12.5px;flex:0 0 auto}
+  .step h3 .where{font-size:11.5px;background:#eef4fd;color:#0b5bd3;padding:2px 9px;border-radius:10px;font-weight:600}
+  .step ol,.step ul{margin:10px 0 0 20px;font-size:13.5px}
+  .step li{margin:4px 0}
+  .expect{margin-top:10px;background:var(--ok-bg);border-left:3px solid var(--ok);padding:8px 12px;border-radius:0 6px 6px 0;font-size:13px}
+  .expect b{color:#0f7a45}
+  img.shot{width:100%;border:1px solid var(--line);border-radius:8px;margin:12px 0 4px;box-shadow:0 2px 10px rgba(20,35,60,.08)}
+  em.cap{display:block;color:var(--mut);font-size:12.5px;margin-bottom:6px}
+  .note{font-size:12.5px;color:var(--mut);margin-top:14px;padding-top:12px;border-top:1px dashed var(--line)}
+  footer{text-align:center;color:var(--mut);font-size:12.5px;margin-top:22px;line-height:2}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <h1>功能补充清单与操作指南</h1>
+  <p>2026-10-09 功能扩展批次：补齐「用户需求 vs 系统匹配度」分析中标记为<b>部分/缺失</b>的 10 项能力，并全部接入 WebUI 界面。本页说明<b>补了什么</b>与<b>怎么操作</b>。</p>
+  <div class="quick">
+    <a href="http://127.0.0.1:8090/frontend/index.html" target="_blank">→ 打开系统（演示入口）</a>
+    <a href="http://127.0.0.1:8090/docs/research/user-match.html" target="_blank">→ 需求匹配度分析</a>
+    <a href="http://127.0.0.1:8090/spec-preview.html" target="_blank">→ 系统规格说明书</a>
+  </div>
+</header>
+
+<!-- ============ 一、补充清单 ============ -->
+<section>
+  <h2>一、已补充清单<span class="sub">10 项 · 后端能力 + 界面入口均已交付</span></h2>
+  <p class="lead">来源：<code>docs/research/user-match.html</code> 匹配度矩阵中标记为「部分 / 缺失」的需求项（编号 3/4/5/6/7/8/10/16/17/23）。<b>编号 9（上报前校验）原已满足，未列入。</b></p>
+
+  <table>
+    <tr><th style="width:34px">#</th><th>功能</th><th>类别</th><th style="width:74px">补充后</th><th>界面入口位置</th></tr>
+    <tr><td>3</td><td>智能编码辅助（规则版预编码）</td><td>编目智能化</td><td><span class="pill p-part">部分</span></td><td>病案编目 → 编目工作台 →「智能推荐」</td></tr>
+    <tr><td>4</td><td>首页条件必填校验</td><td>首页质控</td><td><span class="pill p-ok">满足</span></td><td>自动生效（质控执行时），规则 8→13 条</td></tr>
+    <tr><td>5</td><td>质控退回返修闭环</td><td>首页质控</td><td><span class="pill p-ok">满足</span></td><td>病案编目 →「质控工作台」</td></tr>
+    <tr><td>6</td><td>主诊断选择规则 + 主诊断-主手术匹配</td><td>首页质控</td><td><span class="pill p-ok">满足</span></td><td>自动生效（质控项 WARN 提示）</td></tr>
+    <tr><td>7</td><td>DRG/DIP 预分组（查表版）</td><td>编目智能化</td><td><span class="pill p-part">部分</span></td><td>病案编目 → 编目工作台 →「DRG 预检」</td></tr>
+    <tr><td>8</td><td>上报数据导出（符合国家接口标准）</td><td>首页上报</td><td><span class="pill p-part">部分</span></td><td>首页数据上报 →「导出前检查」/「导出 CSV」</td></tr>
+    <tr><td>10</td><td>上报数据一致性核对</td><td>首页上报</td><td><span class="pill p-ok">满足</span></td><td>首页数据上报 →「一致性核对」</td></tr>
+    <tr><td>16</td><td>病历质量评分（甲/乙/丙）+ 单项否决</td><td>首页质控</td><td><span class="pill p-ok">满足</span></td><td>编目页 →「质控工作台」顶部显示评分等级</td></tr>
+    <tr><td>17</td><td>归档锁定 + 变更留痕</td><td>合规</td><td><span class="pill p-ok">满足</span></td><td>自动生效（归档后改首页/编目返回 409）</td></tr>
+    <tr><td>23</td><td>归档及时率看板 + 超期催缴清单</td><td>统计/时效</td><td><span class="pill p-ok">满足</span></td><td>侧边栏 →「质量看板」</td></tr>
+  </table>
+
+  <div class="note"><b>7 项达到「满足」、3 项为「部分」</b>——「部分」的原因不是没做，而是受外部条件限制：智能编码用的是关键词规则（非 AI 语义）、DRG 是查表提示（非官方分组器）、上报是符合标准的文件导出（未接官方通道）。这三点在界面上都做了明确标注，答辩时应主动说明。</div>
+</section>
+
+<!-- ============ 二、操作指南 ============ -->
+<section>
+  <h2>二、操作指南<span class="sub">按模块给出入口、步骤与预期结果</span></h2>
+  <p class="lead">登录账号：<code>admin / admin123</code>（病案室管理员，全权限）· <code>deptuser / 123456</code>（科室医师，越权操作会提示 403）。</p>
+
+  <!-- A. 质量看板 -->
+  <div class="step">
+    <h3><span class="num">A</span>质量看板（归档及时率与超期催缴）<span class="where">侧边栏 → 质量看板</span></h3>
+    <ol>
+      <li>点击左侧菜单最后一项<b>「质量看板」</b>进入</li>
+      <li>顶部四张指标卡：出院病案总数 / <b>2 日归档率</b> / 3 日归档率 / 平均归档天数（未达标标红）</li>
+      <li>趋势图右上可切换<b>近 3 / 6 / 12 月</b>，观察归档率逐月变化</li>
+      <li>下方「科室归档及时率排名」按 2 日归档率降序，可定位拖后腿的科室</li>
+      <li>最下方<b>超期未归档催缴清单</b>：切换 3 / 7 / 15 / 30 天筛选 → 查看超期病案 → 点<b>「导出清单 CSV」</b>发给临床科室催办</li>
+    </ol>
+    <div class="expect"><b>预期</b>：2 日归档率当前约 23%（未达标，红色）；趋势呈「越近月份越低」的真实规律（近月病案仍在临床手中未交回）；催缴清单约 30 条，超期天数标红。</div>
+    <img class="shot" src="../prototype/screenshots/ext/01-quality-board.png" alt="质量看板">
+    <em class="cap">质量看板：四指标卡 + 月度趋势（截图取自真实数据）</em>
+  </div>
+
+  <!-- B. 智能预编码 -->
+  <div class="step">
+    <h3><span class="num">B</span>智能预编码推荐<span class="where">病案编目 → 编目工作台 → 智能推荐</span></h3>
+    <ol>
+      <li>进入<b>病案编目</b>，在左侧「待编目病案」列表点选一份病案（右侧出现编目工作台）</li>
+      <li>在「主要诊断 · ICD-10 编码」标签右侧点<b>「智能推荐」</b>（手术操作同理，用其右侧按钮）</li>
+      <li>在弹窗文本框中输入病历文本或诊断名称（如 <code>患者主诉转移性右下腹痛，诊断急性阑尾炎</code>）</li>
+      <li>点<b>「开始推荐」</b> → 出现候选编码列表（显示编码、名称、命中的关键词与权重）</li>
+      <li>点任一候选即填入当前编码字段（填入后可再人工调整）</li>
+    </ol>
+    <div class="expect"><b>预期</b>：输入含"阑尾炎"的文本 → 返回 <code>K35.801 急性阑尾炎</code>（命中「阑尾炎」）。弹窗顶部固定提示「此为编码辅助，最终编码由编码员判断并负责」——对应国家规范中"医师/编码员为责任主体"的要求。</div>
+    <img class="shot" src="../prototype/screenshots/ext/05-suggest-result.png" alt="智能预编码推荐">
+    <em class="cap">智能推荐：从自然语言病历文本中命中候选编码</em>
+  </div>
+
+  <!-- C. DRG 预检 -->
+  <div class="step">
+    <h3><span class="num">C</span>DRG/DIP 预检<span class="where">病案编目 → 编目工作台 → DRG 预检</span></h3>
+    <ol>
+      <li>在工作台选好<b>主要诊断编码</b>与<b>主要手术编码</b>（主诊断必填，否则按钮禁用）</li>
+      <li>点<b>「DRG 预检」</b></li>
+      <li>弹窗显示：分组码 + 分组名称 + 参考权重；若有风险则额外给出橙色/红色提示</li>
+      <li>查看底部<b>免责说明</b>（说明该功能为查表提示，非官方分组器）</li>
+    </ol>
+    <div class="expect"><b>预期（匹配成功）</b>：主诊断 <code>K35.801</code> + 主手术 <code>47.0900</code> → <code>GB25 阑尾切除术 · 参考权重 0.85</code>。<br><b>预期（未匹配 / 有风险）</b>：提示"未匹配到分组规则，请核对主诊断/主手术填写"；若主诊断与手术不匹配，用红色提示"存在入歧义组(QY)风险"——这是防 DRG 拒付的关键提示。</div>
+    <img class="shot" src="../prototype/screenshots/ext/06-drg-matched.png" alt="DRG 预检（匹配成功）">
+    <em class="cap">DRG 预检：匹配到分组规则并给出参考权重，底部强制展示免责说明</em>
+  </div>
+
+  <!-- D. 质控工作台 -->
+  <div class="step">
+    <h3><span class="num">D</span>质控工作台（质量评分 + 退回返修闭环）<span class="where">病案编目 → 质控工作台 ／ 最近编目表「质控」</span></h3>
+    <ol>
+      <li>路径一：选中病案后，工作台右上角点<b>「质控工作台」</b></li>
+      <li>路径二：在「最近完成的编目」表格的操作列点<b>「质控」</b>（对应某份已编目病案）</li>
+      <li>弹窗顶部显示<b>质量评分与等级</b>（如"90 分 · 甲级"，含错误数与预警数）</li>
+      <li>下方「质控项」列表：每项显示字段名、级别（ERROR/WARN）、异常描述、当前处理状态</li>
+      <li>按状态操作：<b>待处理(OPEN)</b> → 点「退回临床」填意见；<b>已退回(RETURNED)</b> → 点「模拟整改」；<b>已整改(RECTIFIED)</b> → 点「复核通过 / 不通过」；<b>已闭环(CLOSED)</b> 只读</li>
+      <li>每次操作后点<b>「刷新」</b>查看状态流转</li>
+    </ol>
+    <div class="expect"><b>预期</b>：显示质量评分（如 90 分 · 甲级）与质控项，例如「主诊断【N40 前列腺增生】与主要手术编码【51.2300】不匹配（合理手术前缀：60.2），依据医保办发〔2024〕9 号可能落入 DRG 歧义组(QY)导致 50% 折付」——这是从政策推导出的具体编码质控提示。走完退回→整改→复核后状态变为「已闭环」。</div>
+    <img class="shot" src="../prototype/screenshots/ext/07-qc-workbench.png" alt="质控工作台">
+    <em class="cap">质控工作台：质量评分 + 质控项明细 + 退回/整改/复核三态闭环</em>
+  </div>
+
+  <!-- E. 上报增强 -->
+  <div class="step">
+    <h3><span class="num">E</span>上报：一致性核对 · 导出前检查 · 导出 CSV<span class="where">首页数据上报</span></h3>
+    <ol>
+      <li>进入<b>首页数据上报</b>，在「上报批次管理」表格中先点某批次的<b>「选择」</b></li>
+      <li>点表头右侧<b>「一致性核对」</b> → 页面下方出现核对面板：应报数（院内应有）/ 已报数（上报明细）/ 缺失数（漏报）/ 上报后被改数；不一致时标红「存在偏差」</li>
+      <li>在右侧「上报前数据校验」面板底部点<b>「导出前检查」</b> → 查看必填字段问题清单（无问题提示"字段完整，可直接导出"）</li>
+      <li>点<b>「导出 CSV」</b> → 下载符合国家接口标准的文件（文件名以 <code>hqmsts_</code> 开头）</li>
+    </ol>
+    <div class="expect"><b>预期</b>：一致性核对显示如「应报 7 / 已报 7 / 缺失 0」或标出偏差；导出的 CSV 为每例一行、空值填 <code>-</code>，可直接对接上报流程。<b>说明</b>：官方上报通道需授权接口文档，当前为"符合标准的文件导出"，通道本身保留在防腐层（<code>service/reportclient.go</code>），文档到位后替换实现即可。</div>
+    <img class="shot" src="../prototype/screenshots/ext/04-report-ext.png" alt="上报页新增入口">
+    <em class="cap">上报页：批次管理头部的「一致性核对」与校验面板底部的「导出前检查 / 导出 CSV」</em>
+  </div>
+
+  <!-- F. 自动生效项 -->
+  <div class="step">
+    <h3><span class="num">F</span>自动生效的能力（无需单独操作）<span class="where">编目 / 保存首页时触发</span></h3>
+    <ul>
+      <li><b>条件必填校验</b>：质控执行时自动判断——如主诊断编码以 <code>S</code> 开头（损伤中毒）须填外部原因、以 <code>P</code> 开头（新生儿）须填体重孕周</li>
+      <li><b>主诊断选择规则</b>：慢性病主诊断 + 有手术时，自动提示核对主诊断选择</li>
+      <li><b>归档锁定</b>：病案一旦归档（在架/借出/封存），再改首页或增删编目会返回 409，并给出政策依据</li>
+      <li><b>变更留痕</b>：首页数据每次修改前留前后快照，可通过 <code>GET /api/front-pages/:id/revisions</code> 查询历史</li>
+    </ul>
+    <div class="expect"><b>预期</b>：这些校验"看不见但拦得住"——测法：对一份已归档病案尝试改首页，会看到 409 提示；编目提交时会看到质量评分与等级。</div>
+  </div>
+</section>
+
+<!-- ============ 三、演示动线 ============ -->
+<section>
+  <h2>三、推荐演示动线<span class="sub">约 8 分钟，覆盖全部新增能力</span></h2>
+  <ol style="font-size:14px;margin-left:20px">
+    <li><b>登录</b>（admin）→ 工作台看一眼总量（约 30 秒）</li>
+    <li><b>质量看板</b>：讲 2 日归档率未达标 + 趋势下滑 + 导出催缴清单（约 1.5 分钟，这是病案科每天要用的东西）</li>
+    <li><b>病案编目</b>：选一份病案 →「智能推荐」出候选编码（展示"编码辅助"）→ 选码 →「DRG 预检」看分组与风险提示（约 2 分钟）</li>
+    <li><b>质控工作台</b>：看质量评分与质控项 → 演示「退回临床 → 模拟整改 → 复核通过」闭环（约 2 分钟，呼应"与临床的摩擦面"这一真实痛点）</li>
+    <li><b>首页数据上报</b>：「一致性核对」看偏差 →「导出 CSV」说明符合国家接口标准（约 1.5 分钟）</li>
+    <li>收尾：回到<b>用户画像与匹配度分析</b>页面，说明「10 项已补齐、匹配度 50% → 78.2%」（约 1 分钟）</li>
+  </ol>
+  <div class="note"><b>被问到"没做的部分"时怎么答</b>：DRG 真实分组器、官方上报通道、AI 语义编码——这三项需要<b>授权数据或模型</b>，已在界面上明确标注为"查表提示/文件导出/规则版"，并保留了升级入口（防腐层、规则表可扩展）。这是"边界清晰"而不是"能力缺失"，答辩时应主动说明。</div>
+</section>
+
+<footer>
+  功能扩展批次 · 2026-10-09 · 提交 <code>6ba4bd3</code>（后端 10 项）+ <code>6273902</code>（前端接入）<br>
+  依据文档：<code>docs/research/A1-病案科岗位与痛点.md</code>、<code>A2-政策绩效驱动需求.md</code>、<code>../SPEC.md</code>
+</footer>
+
+</div>
+</body>
+</html>

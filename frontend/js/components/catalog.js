@@ -168,6 +168,13 @@
       var drgOpen = ref(false);
       var drgLoading = ref(false);
       var drgResult = ref(null);
+      /* DRG 未匹配时的兜底提示文案（抽出为变量，避免模板内转义） */
+      var drgFallback = '未匹配到分组规则，请核对主诊断/主手术填写（编码不完整或填写缺失会导致无法入组）。';
+      /* 费用格式化：后端返回 float，避免界面出现 13749.521259873729 这类长尾 */
+      function fmtCost(v) {
+        var n = Number(v || 0);
+        return n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      }
 
       function runDrg() {
         if (!form.icdCode) { A.toast('请先填写主要诊断编码，再做 DRG 预检', 'err'); return; }
@@ -281,6 +288,8 @@
         suggestOpen: suggestOpen, suggestText: suggestText, suggestType: suggestType,
         suggestTarget: suggestTarget, suggestLoading: suggestLoading, suggestList: suggestList,
         runDrg: runDrg, drgOpen: drgOpen, drgLoading: drgLoading, drgResult: drgResult,
+        drgFallback: drgFallback,
+        fmtCost: fmtCost,
         lastResult: lastResult,
         openQc: openQc, loadQc: loadQc, qcOpen: qcOpen, qcLoading: qcLoading,
         qcTarget: qcTarget, qcData: qcData, qcStatusText: qcStatusText, qcStatusTone: qcStatusTone,
@@ -554,10 +563,11 @@
       '        </div>',
       '        <div v-else class="alert warn">',
       '          <span class="ai">!</span>',
-      '          <span>未匹配到分组规则，请核对主诊断/主手术填写（编码不完整或填写缺失会导致无法入组）。</span>',
+      /* 未匹配时后端 hint 即"未匹配…"提示，优先用后端文案，避免与下方 hint 块重复 */
+      '          <span>{{ drgResult.hint || drgFallback }}</span>',
       '        </div>',
-      /* 风险提示（入歧义组 QY 等）用红色强调 */
-      '        <div v-if="drgResult.hint" class="alert mt-12"',
+      /* 风险提示（入歧义组 QY 等）用红色强调；未匹配情形已由上一块展示，此处仅匹配成功时补充 */
+      '        <div v-if="drgResult.matched && drgResult.hint" class="alert mt-12"',
       '             :class="drgResult.hint.indexOf(\'歧义组\') > -1 ? \'err\' : \'info\'">',
       '          <span class="ai">!</span><span>{{ drgResult.hint }}</span>',
       '        </div>',
@@ -584,7 +594,7 @@
       '          <span>{{ qcData.frontPage.patientName }} · {{ qcData.frontPage.gender }} ·',
       '            {{ qcData.frontPage.deptName }} · 主诊断',
       '            <b>{{ qcData.frontPage.mainDiagnosisCode || "—" }}</b> · 主手术',
-      '            <b>{{ qcData.frontPage.mainOperationCode || "—" }}</b> · 费用 {{ qcData.frontPage.totalCost }} 元</span>',
+      '            <b>{{ qcData.frontPage.mainOperationCode || "—" }}</b> · 费用 {{ fmtCost(qcData.frontPage.totalCost) }} 元</span>',
       '        </div>',
       /* 质量评分与单项否决 */
       '        <div v-if="qcData.quality" class="mt-16" style="font-size:15px">',
