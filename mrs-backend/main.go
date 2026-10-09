@@ -36,6 +36,9 @@ func main() {
 		log.Fatalf("数据库连接失败: %v", err)
 	}
 
+	// 注：MedFrontPage 已在下表注册，GORM AutoMigrate 会自动为 med_record_front_page
+	// 补加模型上新增的列，无需手写 SQL。D3（2026-10-09）新增列即由此覆盖：
+	// external_cause_code、external_cause_name、newborn_birth_weight、newborn_gestational_weeks。
 	if err := db.AutoMigrate(
 		&model.SysUser{}, &model.SysRole{}, &model.SysDept{}, &model.SysDoctor{},
 		&model.SysDict{}, &model.OperLog{},

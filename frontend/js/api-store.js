@@ -142,6 +142,11 @@
       coder: fp.recordId ? '病案室' : '',
       catalogDate: d10(r.catalogedAt),
       remark: r.remark || '',
+      // 缺口 D3 条件必填字段：供病案详情抽屉展示（null 表示未采集，不显示为 0）
+      externalCauseCode: fp.externalCauseCode || '',
+      externalCauseName: fp.externalCauseName || '',
+      newbornBirthWeight: intOrNull(fp.newbornBirthWeight),
+      newbornGestationalWeeks: intOrNull(fp.newbornGestationalWeeks),
       _rid: r.id, _status: r.status
     };
   }
@@ -292,7 +297,10 @@
     state.currentUser = {
       name: u.realName || u.username,
       role: u.roleCode === 'ADMIN' ? '病案室主管' : '临床医师',
-      dept: u.deptName || ''
+      dept: u.deptName || '',
+      // roleCode 为后端原始角色码（ADMIN / DEPT_USER），
+      // 供「我的待整改」等按角色区分可见性与视角的页面使用（避免用中文角色名做判断）。
+      roleCode: u.roleCode || ''
     };
   }
 
@@ -308,9 +316,73 @@
     }
   }
 
+  // 顺带修复（2026-10-09，本文件归属本次改动）：本文件内部多处以 `toast(...)` 裸调用提示，
+  // 但作用域内并没有名为 toast 的函数（只有 actions.toast），因此这些调用运行到就抛
+  // `ReferenceError: toast is not defined`——症状是「接口调用成功、成功提示不显示」，
+  // 而 catch 里的 fail(e) 又会二次抛错，把失败提示也一起吞掉（静默 bug）。
+  // 这里补一个别名指向 actions.toast，避免逐个改 17 处调用点。
+  // 函数声明会提升；actions 在本文件稍后初始化，而这些 toast 调用都发生在初始化之后。
+  function toast(msg, type) { return actions.toast(msg, type); }
+
   function fail(e) {
     var msg = e && e.forbidden ? e.message : (e && e.message) || '操作失败';
     toast(msg, 'err');
+  }
+
+  /* ============================================================
+     首页保存载荷（缺口 D3 前置修复）：防「部分字段提交」把其它字段清空
+     后端 PUT /front-pages/:recordId 是「显式白名单 + 全量赋值」语义
+     （见 mrs-backend/internal/handler/frontpage.go 的 Save：
+      tx.Model(&existing).Updates(map[string]any{ ... 白名单 ... })），
+     **未出现在载荷中的白名单字段会被写成零值**。
+     因此任何首页保存都必须先把 GET /front-pages/:recordId 读回的快照按下面
+     三张清单全量回传，再叠加本次要改的字段；否则 otherDiagnosisCodes / extJson /
+     birthDate / D3 新增的 externalCauseCode 等会被静默清空。
+     ============================================================ */
+  // string：未采集写 ''（Go string 的零值）
+  var FP_TEXT = [
+    'patientName', 'gender', 'hospitalNo', 'deptName', 'doctorName',
+    'admitDiagnosis', 'dischargeDiagnosis', 'mainDiagnosisCode', 'otherDiagnosisCodes',
+    'mainOperationCode', 'otherOperationCodes', 'extJson',
+    'externalCauseCode', 'externalCauseName'
+  ];
+  // 数值：未采集写 0
+  var FP_NUM = ['actualDays', 'totalCost'];
+  // *time.Time：未采集写 null
+  var FP_TIME = ['birthDate', 'admitTime', 'dischargeTime'];
+  // 三态字段（*int）：null = 未采集/不适用，整数 = 已采集。
+  // 绝不写 0 占位——质控引擎的 isBlank 把「指向 0 的指针」判为「空」，
+  // 用 0 占位等于把「未采集」伪装成「已填 0」，会让规则语义与数据不一致。
+  var FP_INT_OR_NULL = ['newbornBirthWeight', 'newbornGestationalWeeks'];
+
+  // 空串 / null / 非数字 → null；其余 → 整数（四舍五入）。
+  function intOrNull(v) {
+    if (v === null || v === undefined) return null;
+    if (typeof v === 'string' && v.trim() === '') return null;
+    var n = Number(v);
+    return isFinite(n) ? Math.round(n) : null;
+  }
+
+  // 快照 + 本次改动 → 可直接 PUT 的全量载荷
+  function frontPagePayload(fp, patch) {
+    var base = fp || {};
+    var body = {};
+    FP_TEXT.forEach(function (k) {
+      body[k] = base[k] === null || base[k] === undefined ? '' : String(base[k]);
+    });
+    FP_NUM.forEach(function (k) { body[k] = Number(base[k]) || 0; });
+    FP_TIME.forEach(function (k) { body[k] = base[k] || null; });
+    FP_INT_OR_NULL.forEach(function (k) { body[k] = intOrNull(base[k]); });
+
+    Object.keys(patch || {}).forEach(function (k) {
+      if (!Object.prototype.hasOwnProperty.call(body, k)) return; // 非白名单字段后端也会忽略
+      var v = patch[k];
+      if (FP_TEXT.indexOf(k) > -1) body[k] = v === null || v === undefined ? '' : String(v);
+      else if (FP_NUM.indexOf(k) > -1) body[k] = Number(v) || 0;
+      else if (FP_TIME.indexOf(k) > -1) body[k] = v || null;
+      else if (FP_INT_OR_NULL.indexOf(k) > -1) body[k] = intOrNull(v);
+    });
+    return body;
   }
 
   /* ------------------------- 业务动作（组件同步风格，内部 async） ------------------------- */
@@ -359,7 +431,13 @@
             admitDiagnosis: data.diagMain, dischargeDiagnosis: data.diagMain,
             mainDiagnosisCode: data.icdCode,
             mainOperationCode: noOp ? '' : data.opCode,
-            totalCost: Number(data.fee) || 0
+            totalCost: Number(data.fee) || 0,
+            // 缺口 D3 条件必填真字段：登记表单透传。字符串字段未填传 ''，
+            // 出生体重/孕周未填传 null（用 intOrNull 归一，绝不用 0 占位）。
+            externalCauseCode: data.externalCauseCode || '',
+            externalCauseName: data.externalCauseName || '',
+            newbornBirthWeight: intOrNull(data.newbornBirthWeight),
+            newbornGestationalWeeks: intOrNull(data.newbornGestationalWeeks)
           });
           await refetchRecords();
           pushLocalLog('新增病案', created.recordNo);
@@ -427,7 +505,13 @@
             });
           }
           var fp = await req('GET', '/front-pages/' + rid).catch(function () { return null; });
-          await req('PUT', '/front-pages/' + rid, {
+          // 缺口 D3 数据丢失点修复：GET 回来的首页快照（fp.frontPage）必须先全量回填，
+          // 再叠加本次编目要改的字段——后端 PUT 是「全量赋值」，未传的白名单字段（含
+          // externalCauseCode / externalCauseName / newbornBirthWeight /
+          // newbornGestationalWeeks，以及此前的 otherDiagnosisCodes / extJson / birthDate）
+          // 会被直接写成零值。fp 为空（该病案尚无首页）时退化为纯新增，语义不变。
+          var fpBase = (fp && fp.frontPage) ? fp.frontPage : null;
+          await req('PUT', '/front-pages/' + rid, frontPagePayload(fpBase, {
             patientName: rec.name, gender: rec.gender,
             hospitalNo: rec.inpatientNo, deptName: rec.dept, doctorName: rec.doctor,
             admitTime: rec.admitDate ? rec.admitDate + 'T09:00:00+08:00' : null,
@@ -436,9 +520,10 @@
             admitDiagnosis: patch.diagMain + '待查', dischargeDiagnosis: patch.diagMain,
             mainDiagnosisCode: patch.icdCode,
             mainOperationCode: noOp ? '' : patch.opCode,
-            totalCost: rec.fee || 0,
-            remark: patch.remark || ''
-          });
+            totalCost: rec.fee || 0
+            // 注：原载荷里的 remark 不是 med_record_front_page 的列（不在后端白名单），
+            // 传了也会被忽略，故此处不再传。
+          }));
           var qc = await req('POST', '/front-pages/' + rid + '/qc');
           var hasErr = (qc.results || []).some(function (x) { return x.errorLevel === 'ERROR'; });
           var hasWarn = (qc.results || []).some(function (x) { return x.errorLevel === 'WARN'; });
@@ -693,6 +778,9 @@
 
   var util = {
     today: today, fmt: fmt, addDays: addDays, diffDays: diffDays,
+    // 三态整数解析（'' / null / 非数字 → null，其余 → 整数）：
+    // 新生儿出生体重/孕周等「可空且 0 视为空」的字段在前端统一用它归一，避免 0 占位。
+    intOrNull: intOrNull,
     departments: departments, doctors: doctors, icd10Dict: icd10Dict, icd9Dict: icd9Dict,
     persist: function () { /* 服务端为事实来源，本地不再持久化 */ },
     exportCSV: function (filename, headers, rows) {
@@ -771,11 +859,44 @@
     qcReturn: function (qcResultId, opinion) {
       return req('POST', '/qc-results/' + qcResultId + '/return', { opinion: opinion || '' });
     },
-    qcRectify: function (qcResultId) {
-      return req('POST', '/qc-results/' + qcResultId + '/rectify', {});
+    // opinion 为可选的整改说明（缺口 D4）；不传时仍提交 {}，与后端既有契约一致。
+    qcRectify: function (qcResultId, opinion) {
+      return req('POST', '/qc-results/' + qcResultId + '/rectify', { opinion: opinion || '' });
     },
     qcReview: function (qcResultId, result, opinion) {
       return req('POST', '/qc-results/' + qcResultId + '/review', { result: result, opinion: opinion || '' });
+    },
+    // 缺口 D4：临床端「我的待整改」清单（按登录用户角色限定数据范围：临床=本科室，病案室=全院督办）
+    myPendingQc: function () {
+      return req('GET', '/qc-results/my-pending');
+    },
+
+    /* ---- 缺口 D3（2026-10-09）：首页数据读取 / 修正 / 重新质控 ----
+       权限现实（见 router.go：PUT 与 /qc 都在 admin 组）：
+         GET  /front-pages/:recordId      任意登录用户（auth）→ 临床可只读查看
+         PUT  /front-pages/:recordId      ADMIN only
+         POST /front-pages/:recordId/qc   ADMIN only
+       调用方必须先判 MRMS.state.currentUser.roleCode === 'ADMIN' 再调写接口，
+       否则必然 403。 */
+    getFrontPage: function (recordId) {
+      return req('GET', '/front-pages/' + recordId);
+    },
+    // frontPage 为 GET 回来的完整快照，patch 为本次改动；内部按全量白名单拼载荷，
+    // 避免「只传本次改的字段」把其它字段写成零值（reason 写入变更留痕）。
+    // reason 走查询参数而非 X-Change-Reason 请求头：后端 CORS 只放行
+    // Authorization/Content-Type（middleware/cors.go），自定义头在 8090 跨源联调时会
+    // 触发预检失败；handler 的 changeReason 同时支持 ?reason=，故用查询参数。
+    saveFrontPage: function (recordId, frontPage, patch, reason) {
+      var body = frontPagePayload(frontPage, patch);
+      // 两个分支都直接写成请求字面量而非先存变量：frontend_calls_test.go 只对
+      // 「方法 + 字面量路径」这类写法做静态校验，路径进变量会让「前端调用的路由
+      // 是否存在」这条契约测试静默失去覆盖（此处刻意保留可静态校验的写法）。
+      if (reason) return req('PUT', '/front-pages/' + recordId + '?reason=' + encodeURIComponent(reason), body);
+      return req('PUT', '/front-pages/' + recordId, body);
+    },
+    // 保存后首页状态一律置 WAIT_QC，故修正后必须紧接着重跑质控拿结论。
+    runQc: function (recordId) {
+      return req('POST', '/front-pages/' + recordId + '/qc');
     },
 
     /* ---- 任务 17：归档锁定与变更留痕 ---- */

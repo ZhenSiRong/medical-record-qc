@@ -67,9 +67,32 @@ type MedFrontPage struct {
 	OtherOperationCodes string     `json:"otherOperationCodes"`
 	TotalCost           float64    `json:"totalCost"`
 	ExtJSON             string     `json:"extJson" gorm:"column:ext_json"`
-	Status              string     `json:"status" gorm:"default:DRAFT"`
-	CreatedAt           time.Time  `json:"createdAt"`
-	UpdatedAt           time.Time  `json:"updatedAt"`
+
+	// ---------- 条件必填真字段（缺口 D3，2026-10-09）----------
+	// 依据《住院病案首页数据采集质量与接口标准（2020版）》：损伤中毒（主诊断 S/T 编码）时"外部原因"
+	// 为条件必填；新生儿（P 编码）时"出生体重/孕周"为条件必填。此前这三项无独立列，
+	// SeedQcExt 的条件必填规则用 other_diagnosis_codes / ext_json 顶替，规则语义与字段不一致。
+	// 说明：规范中"外部原因编码"与"外部原因名称"成对出现，故按编码+名称两个字段落库；
+	// 条件必填规则的校验目标是 ExternalCauseCode（编码是实质校验项，名称为随附描述）。
+	ExternalCauseCode string `json:"externalCauseCode"` // 损伤中毒外部原因编码（ICD-10 第二十章 V01–Y98）
+	ExternalCauseName string `json:"externalCauseName"` // 损伤中毒外部原因名称（与编码配对）
+	// NewbornBirthWeight 新生儿出生体重（克）、NewbornGestationalWeeks 新生儿孕周（周）。
+	// 设计取舍：用 *int 而非裸 int —— 这两项对绝大多数非新生儿首页根本不存在，
+	// 裸 int 的零值 0 与"未采集"在 JSON（0 vs null）、变更留痕快照与前端表单里无法区分；
+	// 用指针可表达三态：nil=未采集/不适用，指向 0=填了 0（可疑值），指向正值=已采集。
+	//
+	// 与质控引擎 isBlank 的配合（service/qcengine.go，已 read 确认）：isBlank 对 reflect.Ptr
+	// 先判 IsNil（nil→空），非 nil 则递归判断指向值，故 *int 指向 0 时也被判为"空"。
+	// 本字段语义下这是可接受的取舍：出生体重 0 克 / 孕周 0 周均非合法临床取值，
+	// 判为"未填/无效"同样应当命中"必填字段为空"，宁可多报不漏报；代价是报错文案统一为
+	// "必填字段为空"而非"取值无效"。不改 isBlank 是因为它是全部 REQUIRED 规则的公共判定，
+	// 为个别字段调整会波及既有规则（回归风险大于收益）。
+	NewbornBirthWeight      *int `json:"newbornBirthWeight"`      // 新生儿出生体重（克）
+	NewbornGestationalWeeks *int `json:"newbornGestationalWeeks"` // 新生儿孕周（周）
+
+	Status    string    `json:"status" gorm:"default:DRAFT"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
 }
 
 func (MedFrontPage) TableName() string { return "med_record_front_page" }

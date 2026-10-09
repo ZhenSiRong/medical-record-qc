@@ -30,5 +30,12 @@ mrs-backend/mrs.exe
 *.local.yaml
 .env
 
+# ---------- Python（契约核对脚本） ----------
+__pycache__/
+*.pyc
+
 # ---------- 临时文件 ----------
 *.tmp
+
+# ---------- 契约核对的一次性产物（由 go test -run TestDumpRoutes 重新生成） ----------
+mrs-backend/routes.actual.txt

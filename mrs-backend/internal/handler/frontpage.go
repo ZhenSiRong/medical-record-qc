@@ -83,6 +83,10 @@ func (h *FrontPageHandler) Save(c *gin.Context) {
 				"main_diagnosis_code": req.MainDiagnosisCode, "other_diagnosis_codes": req.OtherDiagnosisCodes,
 				"main_operation_code": req.MainOperationCode, "other_operation_codes": req.OtherOperationCodes,
 				"total_cost": req.TotalCost, "ext_json": req.ExtJSON, "status": model.PageWaitQc,
+				// 缺口 D3（2026-10-09）条件必填真字段：必须显式列入白名单，否则前端传了也写不进库。
+				"external_cause_code": req.ExternalCauseCode, "external_cause_name": req.ExternalCauseName,
+				"newborn_birth_weight":      req.NewbornBirthWeight,
+				"newborn_gestational_weeks": req.NewbornGestationalWeeks,
 			}).Error
 		}
 		req.RecordID = rec.ID

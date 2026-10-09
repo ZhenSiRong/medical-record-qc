@@ -73,7 +73,29 @@
         admitDate: U.today(), dischargeDate: U.today(),
         diagMain: '', icdCode: '', icdCat: '',
         opCode: '00.0000', opName: '无手术操作',
-        doctor: '张建国', fee: 8600, pageCount: 12, quality: '甲级'
+        doctor: '张建国', fee: 8600, pageCount: 12, quality: '甲级',
+        // 缺口 D3 条件必填真字段（2026-10-09）：登记时就采集，避免首页建好后无处可填。
+        externalCauseCode: '', externalCauseName: '',
+        newbornBirthWeight: '', newbornGestationalWeeks: ''
+      });
+
+      // 条件必填提示：主诊断 S/T（损伤中毒）→ 外部原因编码；P（新生儿）→ 出生体重 + 孕周。
+      // 这里只做提示，不拦截提交（与质控规则的 ERROR 判定分离，登记环节允许先建后补）。
+      var isInjury = computed(function () { return /^[ST]/.test(String(form.icdCode || '').trim().toUpperCase()); });
+      var isNewborn = computed(function () { return /^P/.test(String(form.icdCode || '').trim().toUpperCase()); });
+      var condHint = computed(function () {
+        if (isInjury.value) return '主要诊断为损伤中毒编码：外部原因编码（ICD-10 第二十章 V01–Y98）为条件必填，建议现在填写。';
+        if (isNewborn.value) return '主要诊断为新生儿编码：出生体重与孕周为条件必填（两条独立规则），建议现在填写。';
+        return '';
+      });
+      // 体重/孕周留空 → 提交 null（后端把 0 视为「空」，故不能填 0 占位）
+      var weightWarn = computed(function () {
+        var v = U.intOrNull(form.newbornBirthWeight);
+        return v !== null && (v < 500 || v > 6000) ? '出生体重 ' + v + ' 克超出常见范围（500–6000 克），请确认单位为克' : '';
+      });
+      var weeksWarn = computed(function () {
+        var v = U.intOrNull(form.newbornGestationalWeeks);
+        return v !== null && (v < 20 || v > 45) ? '孕周 ' + v + ' 周超出常见范围（20–45 周），请确认单位为周' : '';
       });
 
       function openAdd() {
@@ -82,6 +104,8 @@
         form.admitDate = U.today(); form.dischargeDate = U.today();
         form.opCode = '00.0000'; form.opName = '无手术操作';
         form.fee = 8600; form.pageCount = 12; form.quality = '甲级';
+        form.externalCauseCode = ''; form.externalCauseName = '';
+        form.newbornBirthWeight = ''; form.newbornGestationalWeeks = '';
         showAdd.value = true;
       }
 
@@ -103,10 +127,17 @@
           admitDate: form.admitDate, dischargeDate: form.dischargeDate,
           diagMain: form.diagMain, icdCode: form.icdCode, icdCat: form.icdCat,
           opCode: form.opCode, opName: form.opName, doctor: form.doctor,
-          fee: +form.fee, pageCount: +form.pageCount, quality: form.quality
+          fee: +form.fee, pageCount: +form.pageCount, quality: form.quality,
+          // 缺口 D3：字符串字段未填传 ''，体重/孕周未填传 null（intOrNull，绝不用 0 占位）
+          externalCauseCode: form.externalCauseCode.trim(),
+          externalCauseName: form.externalCauseName.trim(),
+          newbornBirthWeight: U.intOrNull(form.newbornBirthWeight),
+          newbornGestationalWeeks: U.intOrNull(form.newbornGestationalWeeks)
         });
         showAdd.value = false;
-        A.toast('病案登记成功，已进入待归档队列');
+        // 范围超出仅提示不拦截：随成功提示一并带出，不阻断登记
+        var soft = weightWarn.value || weeksWarn.value;
+        A.toast('病案登记成功，已进入待归档队列' + (soft ? '（提示：' + soft + '）' : ''));
       }
 
       /* ---------------- 归档操作 ---------------- */
@@ -157,6 +188,7 @@
         showAdd: showAdd, form: form, allChecked: allChecked,
         toggleAll: toggleAll, toggleOne: toggleOne, resetFilters: resetFilters,
         openAdd: openAdd, submitAdd: submitAdd, onIcdChange: onIcdChange, onOpChange: onOpChange,
+        condHint: condHint, weightWarn: weightWarn, weeksWarn: weeksWarn,
         archiveOne: archiveOne, archiveSelected: archiveSelected, pendingSelected: pendingSelected,
         removeOne: removeOne, exportCSV: exportCSV, tone: MRCommon.mrTone
       };
@@ -274,6 +306,17 @@
       '          <dt>编目人员</dt><dd>{{ detail.coder || "—" }}</dd>',
       '          <dt>编目日期</dt><dd class="tnum">{{ detail.catalogDate || "—" }}</dd>',
       '          <dt>上报状态</dt><dd><span class="badge" :class="tone(detail.reportStatus)">{{ detail.reportStatus }}</span></dd>',
+      /* ---------- 缺口 D3：条件必填字段（两行展示 4 个值） ---------- */
+      '          <dt>外部原因</dt>',
+      '          <dd v-if="detail.externalCauseCode || detail.externalCauseName">',
+      '            <span class="tag" v-if="detail.externalCauseCode">{{ detail.externalCauseCode }}</span>',
+      '            {{ detail.externalCauseName || "" }}</dd>',
+      '          <dd v-else class="muted">未采集（损伤中毒病案为条件必填）</dd>',
+      '          <dt>新生儿信息</dt>',
+      '          <dd v-if="detail.newbornBirthWeight !== null || detail.newbornGestationalWeeks !== null">',
+      '            出生体重 {{ detail.newbornBirthWeight !== null ? detail.newbornBirthWeight + " 克" : "未采集" }}',
+      '            · 孕周 {{ detail.newbornGestationalWeeks !== null ? detail.newbornGestationalWeeks + " 周" : "未采集" }}</dd>',
+      '          <dd v-else class="muted">未采集（新生儿病案为条件必填）</dd>',
       '        </dl>',
       '      </div>',
       '      <div class="drawer-foot">',
@@ -326,6 +369,28 @@
       '        <select class="select" v-model="form.quality">',
       '          <option>甲级</option><option>乙级</option><option>丙级</option>',
       '        </select></div>',
+      /* ---------- 缺口 D3：条件必填真字段（损伤中毒 / 新生儿） ---------- */
+      '      <div class="field"><label>外部原因编码</label>',
+      '        <input class="input" v-model="form.externalCauseCode" placeholder="ICD-10 第二十章，如 V01.x00">',
+      '        <div class="muted small">损伤中毒（主诊断 S/T）时条件必填</div></div>',
+      '      <div class="field"><label>外部原因名称</label>',
+      '        <input class="input" v-model="form.externalCauseName" placeholder="与编码配对，如 行人被机动车碰撞">',
+      '        <div class="muted small">不参与质控校验，仅随编码留存</div></div>',
+      '      <div class="field"><label>新生儿出生体重（克）</label>',
+      '        <input class="input" type="number" min="0" v-model="form.newbornBirthWeight" placeholder="未采集请留空">',
+      '        <div class="muted small" :style="{ color: weightWarn ? \'var(--warning)\' : \'\' }">',
+      '          {{ weightWarn || "留空按未采集提交（null，不会写 0）" }}</div></div>',
+      '      <div class="field"><label>新生儿孕周（周）</label>',
+      '        <input class="input" type="number" min="0" v-model="form.newbornGestationalWeeks" placeholder="未采集请留空">',
+      '        <div class="muted small" :style="{ color: weeksWarn ? \'var(--warning)\' : \'\' }">',
+      '          {{ weeksWarn || "留空按未采集提交（null，不会写 0）" }}</div></div>',
+      '    </div>',
+      '    <div class="alert warn mt-16" v-if="condHint"><span class="ai">!</span>',
+      '      <span>{{ condHint }}仅作提示，不阻断登记（可在病案室首页维护或质控退回后补填）。</span>',
+      '    </div>',
+      '    <div class="muted small mt-8">',
+      '      出生体重 500–6000 克、孕周 20–45 周为常见范围，超出仅提示不拦截；',
+      '      两项留空一律提交 null——后端把 0 视为「空」，故不要用 0 占位。',
       '    </div>',
       '    <div class="alert warn mt-16"><span class="ai">!</span>',
       '      <span>登记完成后病案进入“未归档”队列，需在出院后 7 个工作日内完成归档。</span>',

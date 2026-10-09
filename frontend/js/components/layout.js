@@ -6,6 +6,8 @@
   'use strict';
   var computed = Vue.computed;
 
+  // 导航项。roles 缺省表示不限角色；adminName/adminTitle/adminCrumb 用于同一页面在
+  // 病案室视角下的不同表述（缺口 D4：「我的待整改」对临床是待办，对病案室是督办）。
   var NAV = [
     { key: 'dashboard',  name: '工作台',        icon: 'ri-dashboard-3-line', title: '工作台总览',       crumb: '首页 / 工作台' },
     { key: 'archive',    name: '病案归档',      icon: 'ri-archive-line', title: '病案归档管理',     crumb: '首页 / 病案归档' },
@@ -13,7 +15,9 @@
     { key: 'borrow',     name: '病案借阅',      icon: 'ri-book-open-line', title: '病案借阅管理',     crumb: '首页 / 病案借阅' },
     { key: 'statistics', name: '数据统计',      icon: 'ri-bar-chart-grouped-line', title: '病案数据统计',     crumb: '首页 / 数据统计' },
     { key: 'report',     name: '首页数据上报',  icon: 'ri-upload-cloud-2-line', title: '病案首页数据上报', crumb: '首页 / 数据上报' },
-    { key: 'quality',    name: '质量看板',      icon: 'ri-shield-check-line', title: '病案质量看板',     crumb: '首页 / 质量看板' }
+    { key: 'quality',    name: '质量看板',      icon: 'ri-shield-check-line', title: '病案质量看板',     crumb: '首页 / 质量看板' },
+    { key: 'rectify',    name: '我的待整改',    icon: 'ri-error-warning-line', title: '待整改质控项',     crumb: '首页 / 我的待整改',
+      roles: ['DEPT_USER', 'ADMIN'], adminName: '整改督办', adminTitle: '质控整改督办', adminCrumb: '首页 / 整改督办' }
   ];
 
   /* -------------------- 登录页（route='login'，全屏渲染） -------------------- */
@@ -73,12 +77,33 @@
         statistics: P.Statistics,
         report: P.Report,
         quality: P.Quality,
+        rectify: P.Rectify,   // 缺口 D4：我的待整改 / 整改督办
         login: P.Login
       };
 
+      // 按角色过滤导航（缺口 D4）：DEPT_USER/ADMIN 可见「整改」页；
+      // 同一页面对病案室使用「整改督办」表述，避免病案室看到「我的待整改」而误解为自己要整改。
+      var roleCode = computed(function () {
+        return (S.currentUser && S.currentUser.roleCode) || '';
+      });
+      var navList = computed(function () {
+        var rc = roleCode.value;
+        return NAV.filter(function (n) {
+          return !n.roles || n.roles.indexOf(rc) > -1;
+        }).map(function (n) {
+          if (n.key === 'rectify' && rc === 'ADMIN') {
+            return {
+              key: n.key, icon: n.icon, name: n.adminName,
+              title: n.adminTitle, crumb: n.adminCrumb
+            };
+          }
+          return n;
+        });
+      });
+
       var current = computed(function () { return pageMap[S.route] || P.Dashboard; });
       var meta = computed(function () {
-        return NAV.find(function (n) { return n.key === S.route; }) || NAV[0];
+        return navList.value.find(function (n) { return n.key === S.route; }) || navList.value[0] || NAV[0];
       });
 
       // 侧栏待办角标
@@ -114,7 +139,7 @@
       }
 
       return {
-        S: S, NAV: NAV, current: current, meta: meta, badges: badges,
+        S: S, NAV: NAV, navList: navList, current: current, meta: meta, badges: badges,
         todayText: todayText, nav: nav, logout: logout
       };
     },
@@ -133,7 +158,7 @@
       '      </div>',
       '      <nav class="nav">',
       '        <div class="nav-title">业务功能</div>',
-      '        <button v-for="n in NAV" :key="n.key" class="nav-item"',
+      '        <button v-for="n in navList" :key="n.key" class="nav-item"',
       '                :class="{ active: S.route === n.key }" @click="nav(n.key)">',
       '          <span class="ico"><i :class="n.icon"></i></span>',
       '          <span>{{ n.name }}</span>',
