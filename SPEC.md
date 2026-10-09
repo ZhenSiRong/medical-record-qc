@@ -617,7 +617,7 @@ docker compose up -d --build
 | 原型基线 | `prototype/BASELINE.md` | D1–D10 决策与不做清单 |
 | 原型决策板 | `prototype/review.html` | 六屏实拍 + 逐屏判定 |
 | 接口契约 | `mrs-backend/docs/API.md` | 94 条路由完整契约（含批次 1 扩展域与 D3/D4 变更） |
-| **架构决策记录** | `docs/adr/` | ADR-0001：智能编码辅助改为**本地部署**的向量召回 + LLM 精排（取代原外部 API 方案） |
+| **架构决策记录** | `docs/adr/` | ADR-0001：智能编码辅助改为**本地部署**的向量召回 + LLM 精排（取代原外部 API 方案）；ADR-0002：DRG/DIP 只做**严重度预警**、不出具分组权重（依赖官方授权件的部分不做假实现） |
 | 契约覆盖度核对脚本 | `mrs-backend/tools/check-api-coverage.py` | 真实路由表 vs 文档，防契约再次滞后 |
 | 参考实现实拍 | `prototype/reference/` | 侠医 DMRMS 界面（对标用） |
 | 界面截图 | `prototype/screenshots/final/` | **本文档使用的 7 张定稿截图** |
