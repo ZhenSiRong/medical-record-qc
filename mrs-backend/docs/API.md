@@ -2,9 +2,9 @@
 
 > 本文档是前端开发的唯一接口依据，与后端代码同步维护。接口变更请同步更新本文件。
 >
-> **本轮同步（2026-10-09）**：补齐功能扩展批次 1 的 **22 条**新接口，并修正 4 处与实现不符的旧描述（见文末「变更记录」）。
-> 路由总量 **93 条**（`/api` 下 92 条 + `/healthz`），旧文档只覆盖约 46 条。
-> **核对方式（可重复）**：先用 `go test ./internal/router/ -run TestDumpRoutes` 导出真实路由清单到 `routes.actual.txt`，再执行 `python tools/check-api-coverage.py` 做覆盖度比对，当前报告 **93/93 = 100%**。
+> **本轮同步（2026-10-09）**：补齐功能扩展批次 1 的 **22 条**新接口，并修正 5 处与实现不符的旧描述（见文末「变更记录」）。含 D3（首页条件必填真字段）与 D4（医生端「我的待整改」）落地后的接口变更。
+> 路由总量 **94 条**（`/api` 下 93 条 + `/healthz`），旧文档只覆盖约 46 条。
+> **核对方式（自动，可重复）**：`go test ./internal/router/ -count=1` 内含 `TestApiCoverage`，自动做「文档 ↔ 真实路由」双向比对（当前 **94/94 = 100%**）；另有 `python tools/check-api-coverage.py` 供人工复核。**必须带 `-count=1`**——本测试读取 module 之外的 `frontend/` 与文档缓存无关，但同一包的前端调用核对测试读 `frontend/`，缓存会导致假绿灯。
 >
 > - Base URL：`http://localhost:8080`（`127.0.0.1:8080` 等价）
 > - 全部业务接口挂 `/api` 前缀；除登录与 `/healthz` 外均需请求头 `Authorization: Bearer <token>`
