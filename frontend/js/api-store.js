@@ -736,7 +736,108 @@
   stats.icd10 = function () { return icd10Dict.slice(); };
   stats.icd9 = function () { return icd9Dict.slice(); };
 
-  window.MRMS = { state: state, actions: actions, stats: stats, util: util };
+  /* ============================================================
+     ext —— 功能扩展批次（2026-10-09）新增能力的统一调用入口
+     与 actions 分离，避免污染既有接口；页面用 MRMS.ext.xxx() 调用。
+     ============================================================ */
+  var ext = {
+    /* ---- 任务 3：智能编码辅助（规则版预编码）---- */
+    suggestCodes: function (text, type) {
+      return req('POST', '/code-suggest', { text: text, type: type || '' });
+    },
+    suggestionRulesPage: function (params) {
+      var qs = Object.keys(params || {}).map(function (k) { return k + '=' + encodeURIComponent(params[k]); }).join('&');
+      return req('GET', '/code-suggestion-rules/page' + (qs ? '?' + qs : ''));
+    },
+
+    /* ---- 任务 7：DRG/DIP 预分组（查表版）---- */
+    drgPreview: function (payload) {
+      return req('POST', '/drg-preview', payload);
+    },
+    drgRulesPage: function (params) {
+      var qs = Object.keys(params || {}).map(function (k) { return k + '=' + encodeURIComponent(params[k]); }).join('&');
+      return req('GET', '/drg-group-rules/page' + (qs ? '?' + qs : ''));
+    },
+
+    /* ---- 任务 16：病历质量评分 ---- */
+    quality: function (recordId) {
+      return req('GET', '/front-pages/' + recordId + '/quality');
+    },
+
+    /* ---- 任务 5：质控工作台与退回返修闭环 ---- */
+    qcWorkbench: function (recordId) {
+      return req('GET', '/front-pages/' + recordId + '/qc-workbench');
+    },
+    qcReturn: function (qcResultId, opinion) {
+      return req('POST', '/qc-results/' + qcResultId + '/return', { opinion: opinion || '' });
+    },
+    qcRectify: function (qcResultId) {
+      return req('POST', '/qc-results/' + qcResultId + '/rectify', {});
+    },
+    qcReview: function (qcResultId, result, opinion) {
+      return req('POST', '/qc-results/' + qcResultId + '/review', { result: result, opinion: opinion || '' });
+    },
+
+    /* ---- 任务 17：归档锁定与变更留痕 ---- */
+    revisions: function (recordId) {
+      return req('GET', '/front-pages/' + recordId + '/revisions');
+    },
+
+    /* ---- 任务 23：归档及时率与超期催缴 ---- */
+    archiveTimeliness: function (months) {
+      return req('GET', '/archive-timeliness?months=' + (months || 6));
+    },
+    archiveOverdue: function (days) {
+      return req('GET', '/archive-overdue?days=' + (days || 3));
+    },
+
+    /* ---- 任务 10：上报一致性核对 ---- */
+    reportConsistency: function (period) {
+      return req('GET', '/report-consistency' + (period ? '?period=' + period : ''));
+    },
+    reportConsistencySummary: function () {
+      return req('GET', '/report-consistency/summary');
+    },
+
+    /* ---- 任务 8：上报导出（hqmsts_ CSV）与导出前检查 ---- */
+    reportExportCheck: function (batchId) {
+      return req('GET', '/report-batches/' + batchId + '/export-check');
+    },
+    reportExportURL: function (batchId) {
+      // 导出走浏览器直接下载（带 token 的 URL 不能直接给 <a>，故用 fetch + Blob）
+      return API + '/api/report-batches/' + batchId + '/export';
+    },
+    downloadReportExport: function (batchId, filename) {
+      var self = this;
+      return fetch(self.reportExportURL(batchId), {
+        headers: { Authorization: 'Bearer ' + token() }
+      }).then(function (res) {
+        if (!res.ok) throw new Error('导出失败 HTTP ' + res.status);
+        return res.blob();
+      }).then(function (blob) {
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = filename || ('hqmsts_export.csv');
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(a.href);
+      });
+    },
+
+    /* 便捷包装：带 toast 的调用（页面直接用，不必自己 catch） */
+    call: function (promise, okMsg) {
+      return promise.then(function (d) {
+        if (okMsg) actions.toast(okMsg);
+        return d;
+      }).catch(function (e) {
+        actions.toast((e && e.message) || '操作失败', 'err');
+        throw e;
+      });
+    }
+  };
+
+  window.MRMS = { state: state, actions: actions, stats: stats, util: util, ext: ext };
 
   // 启动：有 token 则恢复会话并拉数，否则停在登录页
   tryResume();

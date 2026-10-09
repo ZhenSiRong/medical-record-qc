@@ -276,7 +276,8 @@ func RunIfEmpty(db *gorm.DB) error {
 				}
 				m := meta{def: def, stay: stay, fee: float64(ri(3200, 128000)) + rng.Float64()}
 				if status != model.RecNotRecycled {
-					catAt := discharge.AddDate(0, 0, ri(6, 15))
+					// 编目时间：出院后 1~3 个工作日（贴合病案科"2 日归档、限期编目"的实际节奏）
+					catAt := discharge.AddDate(0, 0, ri(1, 3))
 					if catAt.After(now) {
 						catAt = now
 					}
@@ -286,7 +287,9 @@ func RunIfEmpty(db *gorm.DB) error {
 						m.opCode, m.opName = d.code, d.name
 					}
 					if status == model.RecArchived || status == model.RecBorrowed {
-						archAt := catAt.AddDate(0, 0, ri(1, 3))
+						// 归档上架：编目后 0~2 天，使"出院→归档"总耗时落在 1~5 天
+						// 与《病案管理质量控制指标》的 2 日/3 日归档率考核场景一致
+						archAt := catAt.AddDate(0, 0, ri(0, 2))
 						if archAt.After(now) {
 							archAt = now
 						}

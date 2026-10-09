@@ -12,7 +12,8 @@
     { key: 'catalog',    name: '病案编目',      icon: 'ri-price-tag-3-line', title: '病案编目管理',     crumb: '首页 / 病案编目' },
     { key: 'borrow',     name: '病案借阅',      icon: 'ri-book-open-line', title: '病案借阅管理',     crumb: '首页 / 病案借阅' },
     { key: 'statistics', name: '数据统计',      icon: 'ri-bar-chart-grouped-line', title: '病案数据统计',     crumb: '首页 / 数据统计' },
-    { key: 'report',     name: '首页数据上报',  icon: 'ri-upload-cloud-2-line', title: '病案首页数据上报', crumb: '首页 / 数据上报' }
+    { key: 'report',     name: '首页数据上报',  icon: 'ri-upload-cloud-2-line', title: '病案首页数据上报', crumb: '首页 / 数据上报' },
+    { key: 'quality',    name: '质量看板',      icon: 'ri-shield-check-line', title: '病案质量看板',     crumb: '首页 / 质量看板' }
   ];
 
   /* -------------------- 登录页（route='login'，全屏渲染） -------------------- */
@@ -71,6 +72,7 @@
         borrow: P.Borrow,
         statistics: P.Statistics,
         report: P.Report,
+        quality: P.Quality,
         login: P.Login
       };
 

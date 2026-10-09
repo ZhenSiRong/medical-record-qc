@@ -24,7 +24,20 @@ class NoCacheHandler(SimpleHTTPRequestHandler):
 
 
 if __name__ == "__main__":
+    # 用法：python serve.py [端口] [绑定地址]
+    #   默认 8090 端口、绑定 0.0.0.0（同网段同事可用本机局域网 IP 访问，便于演示分享）
+    #   只给本机用时传 127.0.0.1 收窄
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 8090
+    host = sys.argv[2] if len(sys.argv) > 2 else "0.0.0.0"
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
-    print(f"静态服务已启动 http://127.0.0.1:{port}/ （Cache-Control: no-cache）")
-    ThreadingHTTPServer(("127.0.0.1", port), NoCacheHandler).serve_forever()
+
+    import socket
+    try:
+        lan = socket.gethostbyname(socket.gethostname())
+    except Exception:
+        lan = ""
+    print(f"静态服务已启动（Cache-Control: no-cache）")
+    print(f"  本机访问：http://127.0.0.1:{port}/")
+    if host == "0.0.0.0" and lan:
+        print(f"  局域网访问：http://{lan}:{port}/")
+    ThreadingHTTPServer((host, port), NoCacheHandler).serve_forever()

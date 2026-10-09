@@ -128,6 +128,60 @@
         A.toast('校验问题清单已导出');
       }
 
+      /* ============================================================
+         扩展能力（2026-10-09 接口批次）——本页接入 2 项：
+           任务10 上报一致性核对（上报口径 vs 院内实际）
+           任务8  导出前检查 + 符合国家接口标准的 hqmsts_ CSV 导出
+         ============================================================ */
+      var E = MRMS.ext;
+
+      /* ---- 任务10：上报一致性核对 ---- */
+      var consistency = ref(null);
+      var consistencyLoading = ref(false);
+
+      function runConsistency() {
+        if (!selected.value) { A.toast('请先选择上报批次', 'err'); return; }
+        consistencyLoading.value = true;
+        E.reportConsistency(selected.value.period).then(function (d) {
+          consistency.value = d || null;
+        }).catch(function (e) {
+          consistency.value = null;
+          A.toast((e && e.message) || '一致性核对失败', 'err');
+        }).then(function () { consistencyLoading.value = false; });
+      }
+      function closeConsistency() { consistency.value = null; }
+
+      /* ---- 任务8：导出前检查 + 导出 CSV ---- */
+      var showExportCheck = ref(false);
+      var exportCheck = ref(null);
+      var exportCheckLoading = ref(false);
+
+      function runExportCheck() {
+        var rep = selected.value;
+        if (!rep) { A.toast('请先选择上报批次', 'err'); return; }
+        if (!rep._bid) { A.toast('批次尚未落库完成，请稍后重试', 'err'); return; }
+        exportCheck.value = null;
+        exportCheckLoading.value = true;
+        showExportCheck.value = true;
+        E.reportExportCheck(rep._bid).then(function (d) {
+          exportCheck.value = d || null;
+        }).catch(function (e) {
+          exportCheck.value = null;
+          A.toast((e && e.message) || '导出前检查失败', 'err');
+        }).then(function () { exportCheckLoading.value = false; });
+      }
+
+      // 导出符合国家接口标准的 CSV（文件名以 hqmsts_ 开头）
+      function downloadCsv() {
+        var rep = selected.value;
+        if (!rep) { A.toast('请先选择上报批次', 'err'); return; }
+        if (!rep._bid) { A.toast('批次尚未落库完成，请稍后重试', 'err'); return; }
+        var fname = 'hqmsts_' + rep.period.replace('-', '') + '.csv';
+        E.call(E.downloadReportExport(rep._bid, fname)).then(function () {
+          A.toast('已导出符合国家接口标准的 CSV（文件名以 hqmsts_ 开头）');
+        }).catch(function () {});
+      }
+
       // 首页核心字段规范
       var fieldSpec = [
         { key: 'mrNo', name: '病案号', req: '必填', note: '住院患者唯一标识，院内唯一' },
@@ -149,7 +203,12 @@
         S: S, U: U, batches: batches, selected: selected, check: check, mast: mast,
         showCreate: showCreate, newPeriod: newPeriod, periodOptions: periodOptions,
         createBatch: createBatch, doSubmit: doSubmit, exportPackage: exportPackage,
-        exportIssues: exportIssues, fieldSpec: fieldSpec, tone: MRCommon.mrTone
+        exportIssues: exportIssues, fieldSpec: fieldSpec, tone: MRCommon.mrTone,
+        // 扩展能力（任务10 / 任务8）
+        runConsistency: runConsistency, closeConsistency: closeConsistency,
+        consistency: consistency, consistencyLoading: consistencyLoading,
+        runExportCheck: runExportCheck, downloadCsv: downloadCsv,
+        showExportCheck: showExportCheck, exportCheck: exportCheck, exportCheckLoading: exportCheckLoading
       };
     },
     template: [
@@ -184,6 +243,8 @@
       '        <h3>上报批次管理</h3>',
       '        <span class="sub">按自然月组织上报数据</span>',
       '        <div class="right">',
+      /* 任务10：一致性核对入口（核对当前选中批次的上报周期） */
+      '          <button class="btn btn-default" @click="runConsistency"><i class="ri-git-compare-line"></i> 一致性核对</button>',
       '          <button class="btn btn-primary" @click="showCreate = true">+ 新建批次</button>',
       '        </div>',
       '      </div>',
@@ -250,6 +311,9 @@
       '          <div class="flex gap-8 mt-16" style="flex-wrap:wrap">',
       '            <button class="btn btn-default btn-sm" @click="exportIssues">导出问题清单</button>',
       '            <button class="btn btn-default btn-sm" @click="exportPackage">导出数据包</button>',
+      /* 任务8：导出前检查 + 导出国家接口标准 CSV（hqmsts_） */
+      '            <button class="btn btn-default btn-sm" @click="runExportCheck"><i class="ri-checkbox-multiple-line"></i> 导出前检查</button>',
+      '            <button class="btn btn-default btn-sm" @click="downloadCsv"><i class="ri-download-2-line"></i> 导出 CSV</button>',
       '            <button class="btn btn-primary btn-sm ml-auto" @click="doSubmit">',
       '              {{ selected.status === \'已接收\' ? "已完成上报" : "执行上报" }}',
       '            </button>',
@@ -257,6 +321,62 @@
       '        </template>',
       '        <mr-empty v-else text="请选择左侧的上报批次" icon="ri-file-list-3-line"></mr-empty>',
       '      </div>',
+      '    </div>',
+      '  </div>',
+
+      /* ---------------- 一致性核对（任务10） ---------------- */
+      '  <div v-if="consistencyLoading || consistency" class="card mt-16">',
+      '    <div class="card-head">',
+      '      <h3>上报一致性核对<span v-if="consistency" style="margin-left:6px;font-weight:600">· {{ consistency.period }}</span></h3>',
+      '      <span class="badge no-dot" style="margin-left:8px" v-if="consistency"',
+      '            :class="consistency.consistent ? \'green\' : \'red\'">',
+      '        {{ consistency.consistent ? "上报口径一致" : "存在偏差" }}',
+      '      </span>',
+      '      <button class="link-btn ml-auto" @click="closeConsistency">收起</button>',
+      '    </div>',
+      '    <div class="card-body">',
+      '      <div v-if="consistencyLoading" class="muted small">正在核对上报数据与院内原始数据…</div>',
+      '      <template v-else-if="consistency">',
+      '        <div class="flex gap-12" style="flex-wrap:wrap">',
+      '          <div style="flex:1;min-width:150px;padding:12px 14px;border:1px solid var(--border);border-radius:8px">',
+      '            <div class="muted small">应报数（院内应有）</div>',
+      '            <div class="tnum" style="font-size:22px;font-weight:700">{{ consistency.expected }}</div>',
+      '          </div>',
+      '          <div style="flex:1;min-width:150px;padding:12px 14px;border:1px solid var(--border);border-radius:8px">',
+      '            <div class="muted small">已报数（上报明细）</div>',
+      '            <div class="tnum" style="font-size:22px;font-weight:700">{{ consistency.submitted }}</div>',
+      '          </div>',
+      '          <div style="flex:1;min-width:150px;padding:12px 14px;border:1px solid var(--border);border-radius:8px">',
+      '            <div class="muted small">缺失数（漏报）</div>',
+      '            <div class="tnum" :style="{ fontSize: \'22px\', fontWeight: 700, color: consistency.missing ? \'var(--danger)\' : \'\' }">{{ consistency.missing }}</div>',
+      '          </div>',
+      '          <div style="flex:1;min-width:150px;padding:12px 14px;border:1px solid var(--border);border-radius:8px">',
+      '            <div class="muted small">上报后被改数</div>',
+      '            <div class="tnum" :style="{ fontSize: \'22px\', fontWeight: 700, color: consistency.mismatch ? \'var(--danger)\' : \'\' }">{{ consistency.mismatch }}</div>',
+      '          </div>',
+      '        </div>',
+      '        <div v-if="!consistency.consistent" class="alert err mt-16"><span class="ai">!</span>',
+      '          <span>上报口径与院内实际不一致：存在漏报或上报后被改数据。评审现场核查会抽取 ≥20% 上报数据，偏差 ≥10% 会被判为错误数据并扣分，请务必核对后再上报。</span>',
+      '        </div>',
+      '        <div v-else class="alert ok mt-16"><span class="ai"><i class="ri-checkbox-circle-line"></i></span>',
+      '          <span>上报数据与院内原始数据一致，无漏报、无上报后改动。</span>',
+      '        </div>',
+      '        <template v-if="(consistency.detail || []).length">',
+      '          <div class="divider"></div>',
+      '          <div style="font-size:13px;font-weight:600;margin-bottom:8px">偏差明细（{{ consistency.detail.length }}）</div>',
+      '          <div style="max-height:240px;overflow-y:auto">',
+      '            <div v-for="(d, i) in consistency.detail" :key="i"',
+      '                 style="padding:8px 0;border-bottom:1px dashed #eef1f6">',
+      '              <div class="flex items-center gap-8">',
+      '                <span class="badge" :class="d.kind === \'MISSING\' ? \'orange\' : \'red\'">{{ d.kind === \'MISSING\' ? "缺失" : "被改" }}</span>',
+      '                <span class="mono small">{{ d.recordNo || "—" }}</span>',
+      '                <span class="small">{{ d.patientName }} · {{ d.deptName }}</span>',
+      '              </div>',
+      '              <div class="small muted">{{ d.detail }}</div>',
+      '            </div>',
+      '          </div>',
+      '        </template>',
+      '      </template>',
       '    </div>',
       '  </div>',
 
@@ -296,6 +416,39 @@
       '    <template #foot>',
       '      <button class="btn btn-default" @click="showCreate = false">取消</button>',
       '      <button class="btn btn-primary" @click="createBatch">创建批次</button>',
+      '    </template>',
+      '  </mr-modal>',
+
+      /* ---------------- 导出前检查（任务8） ---------------- */
+      '  <mr-modal v-if="showExportCheck" title="导出前检查"',
+      '            sub="扫描批次内病案首页必填字段完整性" :wide="true" @close="showExportCheck = false">',
+      '    <div v-if="exportCheckLoading" class="muted small">正在扫描批次内病案首页…</div>',
+      '    <template v-else>',
+      '      <template v-if="exportCheck">',
+      '        <div class="alert" :class="exportCheck.problemCount ? \'warn\' : \'ok\'">',
+      '          <span class="ai">!</span>',
+      '          <span>{{ exportCheck.message }}（共 {{ exportCheck.total }} 条，问题病案 {{ exportCheck.problemItems }} 份）</span>',
+      '        </div>',
+      '        <div v-if="!(exportCheck.items || []).length" class="alert ok mt-12">',
+      '          <span class="ai"><i class="ri-checkbox-circle-line"></i></span>',
+      '          <span>必填字段完整，可直接导出符合国家接口标准的 CSV。</span>',
+      '        </div>',
+      '        <div v-else class="mt-12" style="max-height:300px;overflow-y:auto">',
+      '          <div v-for="(p, i) in exportCheck.items" :key="i"',
+      '               style="padding:8px 0;border-bottom:1px dashed #eef1f6">',
+      '            <div class="flex items-center gap-8">',
+      '              <span class="mono small">{{ p.recordNo || ("#" + p.recordId) }}</span>',
+      '              <span class="small">{{ p.patientName }}</span>',
+      '            </div>',
+      '            <div class="small" style="color:var(--danger)">{{ (p.issues || []).join("；") }}</div>',
+      '          </div>',
+      '        </div>',
+      '      </template>',
+      '      <div v-else class="muted small">检查失败，请稍后重试。</div>',
+      '    </template>',
+      '    <template #foot>',
+      '      <button class="btn btn-default" @click="showExportCheck = false">关闭</button>',
+      '      <button class="btn btn-primary" @click="downloadCsv"><i class="ri-download-2-line"></i> 导出 CSV</button>',
       '    </template>',
       '  </mr-modal>',
       '</div>'
