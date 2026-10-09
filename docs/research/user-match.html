@@ -75,12 +75,13 @@
   <p>目标用户：医院<b>病案科（病案室/病案统计科）</b>——住院病案从出院回收到首页上报全流程的操作者与把关人，也是临床上"管医生的医生"。本页把调研到的真实需求逐条对照本系统实现，算清匹配程度。</p>
   <div class="hero">
     <div class="score">
-      <b>50.0%</b>
+      <b>78.2%</b>
       <span>刚性加权匹配度<br>（23 项需求 / 权重合计 85）</span>
     </div>
     <div class="hero-note">
       <b>怎么读这个数</b>：需求按"不做会被拒付/扣分/处罚"的<b>刚性程度</b>加权（政策驱动的权重 4–5，锦上添花的 2–3）。<br>
-      结论：<b>业务闭环已打通</b>（借阅域匹配度最高 83%），<b>政策驱动的深水区尚未覆盖</b>（DRG 预分组、示踪时间轴、时限监控、AI 预编码），后者正是病案科"钱与帽子"所在。
+      <b>2026-10-09 功能扩展批次已补齐 10 项</b>：条件必填、质控退回闭环、主诊断规则、质量评分、归档锁定、智能预编码、DRG 预检、一致性核对、归档及时率、上报导出——满足项由 <b>5 项增至 13 项</b>。<br>
+      剩余差距集中在：<b>AI 预编码</b>（现为规则版）、<b>DRG 真实分组器</b>（现为查表版）、<b>官方上报通道</b>（现为文件导出）、<b>合规长期管理</b>（保存年限 / 无纸化 / 复印服务）。
     </div>
   </div>
 </header>
@@ -136,11 +137,11 @@
   <p class="lead">算法：单条需求得分（满足 1.0 / 部分 0.5 / 缺失 0）× 刚性权重，除以权重总和。<b>权重来源是政策与痛点强度，不是我们的完成度</b>——所以低分项恰恰是最该补的。</p>
 
   <div class="bars">
+    <div class="bar-row"><span>质控域</span><div class="bar-track"><div class="bar-fill" style="width:100%;background:linear-gradient(90deg,#2bbf99,#009088)"></div></div><span class="val">100%</span></div>
+    <div class="bar-row"><span>编目域</span><div class="bar-track"><div class="bar-fill" style="width:84%;background:linear-gradient(90deg,#2bbf99,#009088)"></div></div><span class="val">84%</span></div>
     <div class="bar-row"><span>借阅域</span><div class="bar-track"><div class="bar-fill" style="width:83%;background:linear-gradient(90deg,#2bbf99,#009088)"></div></div><span class="val">83%</span></div>
-    <div class="bar-row"><span>质控域</span><div class="bar-track"><div class="bar-fill" style="width:50%;background:linear-gradient(90deg,#f0b34d,#d98b13)"></div></div><span class="val">50%</span></div>
-    <div class="bar-row"><span>上报域</span><div class="bar-track"><div class="bar-fill" style="width:50%;background:linear-gradient(90deg,#f0b34d,#d98b13)"></div></div><span class="val">50%</span></div>
-    <div class="bar-row"><span>归档域</span><div class="bar-track"><div class="bar-fill" style="width:50%;background:linear-gradient(90deg,#f0b34d,#d98b13)"></div></div><span class="val">50%</span></div>
-    <div class="bar-row"><span>编目域</span><div class="bar-track"><div class="bar-fill" style="width:46%;background:linear-gradient(90deg,#f0b34d,#d98b13)"></div></div><span class="val">46%</span></div>
+    <div class="bar-row"><span>上报域</span><div class="bar-track"><div class="bar-fill" style="width:81%;background:linear-gradient(90deg,#f0b34d,#d98b13)"></div></div><span class="val">81%</span></div>
+    <div class="bar-row"><span>归档域</span><div class="bar-track"><div class="bar-fill" style="width:81%;background:linear-gradient(90deg,#f0b34d,#d98b13)"></div></div><span class="val">81%</span></div>
     <div class="bar-row"><span>统计域</span><div class="bar-track"><div class="bar-fill" style="width:30%;background:linear-gradient(90deg,#e88b84,#d5433c)"></div></div><span class="val">30%</span></div>
     <div class="bar-row"><span>合规 / 长期管理</span><div class="bar-track"><div class="bar-fill" style="width:2%;background:#d5433c"></div></div><span class="val">0%</span></div>
   </div>
@@ -158,27 +159,27 @@
 
     <tr><td>1</td><td>ICD 编码检索与选码辅助</td><td class="w">5</td><td>编码正确率 ≥90%；编码员严重不足</td><td><span class="pill p-ok">满足</span></td><td>编目工作台 ICD-10/ICD-9-CM-3 关键字检索选码，字典库 35 条，Redis 缓存加速</td></tr>
     <tr><td>2</td><td>编码正确性校验（编码须存在）</td><td class="w">5</td><td>同上</td><td><span class="pill p-ok">满足</span></td><td>编目提交时校验编码须命中字典（否则 409）；质控含 CODE_EXIST 规则</td></tr>
-    <tr class="r-miss"><td>3</td><td>智能编码辅助（NLP / AI 预编码）</td><td class="w">4</td><td>编码员日均 44–56 份，缺口数十倍</td><td><span class="pill p-miss">缺失</span></td><td>无 NLP/AI 能力，编码纯手工选码</td></tr>
-    <tr class="r-part"><td>4</td><td>首页必填 + 逻辑校验（含条件必填）</td><td class="w">5</td><td>2020 版一级质控；2016 版必填项列表</td><td><span class="pill p-part">部分</span></td><td>有 8 条规则（4 必填 + 2 逻辑 + 2 编码存在性），规则表可配；<b>但无条件必填</b>（损伤中毒外部原因、新生儿体重/孕周等）</td></tr>
-    <tr class="r-part"><td>5</td><td>质控异常定位 + 退回返修闭环</td><td class="w">5</td><td>首页缺陷率 15.3%；退回沟通成本高</td><td><span class="pill p-part">部分</span></td><td>异常逐字段落库 <code>front_page_qc_result</code> + 修正确认；<b>无退回临床 / 申诉 / 复议 / 二次复核流程，且质控无独立页面</b></td></tr>
-    <tr class="r-miss"><td>6</td><td>主要诊断选择规则 + 主诊断-主手术匹配</td><td class="w">4</td><td>DRG/DIP 2.0；QY 歧义组按 50% 折付</td><td><span class="pill p-miss">缺失</span></td><td>无主诊断选择规则引擎（危害最大/耗资源最多/住院最长），无主诊断与手术一致性校验</td></tr>
-    <tr class="r-miss"><td>7</td><td>DRG/DIP 预分组 + 高低编 / CC-MCC 预警</td><td class="w">4</td><td>DRG/DIP 2.0；特例单议 5%/5‰</td><td><span class="pill p-miss">缺失</span></td><td>基线明确不做（超出范围），答辩需主动说明边界</td></tr>
+    <tr class="r-part"><td>3</td><td>智能编码辅助（NLP / AI 预编码）</td><td class="w">4</td><td>编码员日均 44–56 份，缺口数十倍</td><td><span class="pill p-part">部分</span></td><td><b>规则版预编码已实现</b>：<code>code_suggestion_rule</code> 31 条关键词规则 + <code>POST /code-suggest</code>，可从病历文本推荐编码（实测"胸闷气促，考虑心力衰竭"→ I50.901）；<b>仍是关键词匹配，非 NLP/AI 语义理解</b></td></tr>
+    <tr><td>4</td><td>首页必填 + 逻辑校验（含条件必填）</td><td class="w">5</td><td>2020 版一级质控；2016 版必填项列表</td><td><span class="pill p-ok">满足</span></td><td>规则引擎支持<b>条件必填</b>（<code>condition_expr</code>）：字段 <code>LIKE 'S%'/'P%'</code> 前缀条件与 <code>actual_days&gt;0</code> 逻辑条件；规则由 8 条增至 <b>13 条</b>（新增损伤中毒外部原因、新生儿体重孕周、出院诊断条件必填）</td></tr>
+    <tr><td>5</td><td>质控异常定位 + 退回返修闭环</td><td class="w">5</td><td>首页缺陷率 15.3%；退回沟通成本高</td><td><span class="pill p-ok">满足</span></td><td>闭环状态机 <code>OPEN→RETURNED→RECTIFIED→CLOSED/REJECTED_BY_QC</code>：退回（附意见）/ 整改 / 复核三接口 + 质控工作台视图；操作人、时间、意见全程留痕（实测走通全流程）</td></tr>
+    <tr><td>6</td><td>主要诊断选择规则 + 主诊断-主手术匹配</td><td class="w">4</td><td>DRG/DIP 2.0；QY 歧义组按 50% 折付</td><td><span class="pill p-ok">满足</span></td><td>新增两类规则：<code>DIAG_OP_MATCH</code>（内置诊断-手术匹配简表，实测报出"主诊断 O82 剖宫产需手术 74.1 但主手术编码为空"）+ <code>MAIN_DIAG_RULE</code>（慢性病主诊断+有手术 → 提示入歧义组风险）</td></tr>
+    <tr class="r-part"><td>7</td><td>DRG/DIP 预分组 + 高低编 / CC-MCC 预警</td><td class="w">4</td><td>DRG/DIP 2.0；特例单议 5%/5‰</td><td><span class="pill p-part">部分</span></td><td><b>查表版预检已实现</b>：<code>drg_group_rule</code> 15 条示例规则 + <code>POST /drg-preview</code>（实测 K35+47.09 → GB25 权重 0.85；未匹配时提示核对编码，另有高低编风险提示）；<b>非官方分组器，权重为示例值</b></td></tr>
     <tr class="r-part"><td>8</td><td>上报接口 + 批次 / 回执 / 失败排查</td><td class="w">5</td><td>首页上传率 100%；结算清单 7 工作日</td><td><span class="pill p-part">部分</span></td><td>批次、明细、回执状态、失败原因、报表导出齐备；<b>但上报通道是本地 XML 落盘桩，未接官方接口</b></td></tr>
     <tr><td>9</td><td>上报前校验（不过不予上报）</td><td class="w">4</td><td>2020 版一级质控</td><td><span class="pill p-ok">满足</span></td><td>仅 QC_PASSED 的首页可入批次；批次详情页展示校验通过率与问题清单</td></tr>
-    <tr class="r-miss"><td>10</td><td>上报数据与院内原始数据一致性核对</td><td class="w">4</td><td>等级评审现场核查 ≥20%、偏差 ≥10% 判错</td><td><span class="pill p-miss">缺失</span></td><td>无一致性核对工具（首页 vs 月报出院人次一致率）</td></tr>
-    <tr class="r-part"><td>11</td><td>首页 24h 完成率 + 2 日归档率时限监控与催办</td><td class="w">4</td><td>2021 版时效/归档指标；归档及时率 ≥90%</td><td><span class="pill p-part">部分</span></td><td>已埋 <code>archived_at</code>/<code>cataloged_at</code> 时间戳可计算；<b>无时限看板、无自动催办</b></td></tr>
+    <tr><td>10</td><td>上报数据与院内原始数据一致性核对</td><td class="w">4</td><td>等级评审现场核查 ≥20%、偏差 ≥10% 判错</td><td><span class="pill p-ok">满足</span></td><td><code>GET /report-consistency</code> 输出「应报 / 已报 / 缺失 / 上报后被改」四类核对（实测某周期应报 5、已报 0、缺失 5 如实报告），另有近 6 月趋势接口</td></tr>
+    <tr><td>11</td><td>首页 24h 完成率 + 2 日归档率时限监控与催办</td><td class="w">4</td><td>2021 版时效/归档指标；归档及时率 ≥90%</td><td><span class="pill p-ok">满足</span></td><td><code>GET /archive-timeliness</code> 给出 2 日/3 日归档率、达标判定、按月趋势与科室排名；<code>GET /archive-overdue</code> 输出超期未归档催缴清单（实测 30 条，按超期天数倒序）</td></tr>
     <tr><td>12</td><td>借阅在线申请 — 多级审批 — 归还</td><td class="w">4</td><td>病历管理规定第 16 条；借阅矛盾</td><td><span class="pill p-ok">满足</span></td><td>申请 → 多级审批链（可配层级）→ 借出（条件更新防双借）→ 归还核销 → 续借</td></tr>
     <tr><td>13</td><td>逾期催还与借阅台账追溯</td><td class="w">4</td><td>借出难追踪、逾期不还</td><td><span class="pill p-ok">满足</span></td><td>定时任务自动标记逾期 + 写催还记录；台账支持逾期筛选、审批链追溯、人工催还</td></tr>
     <tr class="r-part"><td>14</td><td>借阅 / 复印 / 封存合规留痕与权限</td><td class="w">4</td><td>病历管理规定第 15–27 条</td><td><span class="pill p-part">部分</span></td><td>借阅留痕、封存态、角色权限、操作审计齐；<b>复印服务（申请/受理/在场复印/盖章印记）未做，仅留 API 位</b></td></tr>
     <tr class="r-part"><td>15</td><td>病案示踪（全流程时间轴，零丢失）</td><td class="w">3</td><td>条码示踪是商业系统标配</td><td><span class="pill p-part">部分</span></td><td>有归档流水（回收/上架/封存）+ 架位绑定，可查单病案履历；<b>无统一时间轴视图、无实时位置</b></td></tr>
-    <tr class="r-part"><td>16</td><td>病历质量评分（甲/乙/丙）与丙级预警</td><td class="w">3</td><td>甲级病历率 ≥90%，杜绝丙级</td><td><span class="pill p-part">部分</span></td><td>质量等级由质控结果推导（甲乙丙）；<b>无 90 分制评分模型、无单项否决项识别</b></td></tr>
-    <tr class="r-part"><td>17</td><td>归档后不可篡改 + 操作痕迹可追溯</td><td class="w">3</td><td>电子病历规范第 17/18 条</td><td><span class="pill p-part">部分</span></td><td>写操作全量审计 <code>oper_log</code>（人/时间/IP/状态码）；<b>非"归档锁定 + 版本留痕"机制</b></td></tr>
+    <tr><td>16</td><td>病历质量评分（甲/乙/丙）与丙级预警</td><td class="w">3</td><td>甲级病历率 ≥90%，杜绝丙级</td><td><span class="pill p-ok">满足</span></td><td>100 分制评分（每条 ERROR −15 / WARN −5）：≥90 甲级、75–89 乙级、&lt;75 丙级；<b>单项否决</b>（姓名缺失 / 主诊断缺失 / 出院早于入院）直判丙级。实测 score=95 → gradeName「甲级」</td></tr>
+    <tr><td>17</td><td>归档后不可篡改 + 操作痕迹可追溯</td><td class="w">3</td><td>电子病历规范第 17/18 条</td><td><span class="pill p-ok">满足</span></td><td><b>归档锁定</b>：已归档/借出/封存病案改首页或增删编目一律 409（实测拦截成功并附《电子病历应用管理规范》依据）；修改前留前后快照至 <code>front_page_revision</code>，<code>GET /revisions</code> 可查历史</td></tr>
     <tr class="r-miss"><td>18</td><td>病历保存年限管理（住院 30 年 / 门诊 15 年）</td><td class="w">2</td><td>病历管理规定第 29 条</td><td><span class="pill p-miss">缺失</span></td><td>无保存期限字段与到期预警</td></tr>
     <tr class="r-part"><td>19</td><td>统计报表自动生成（月报/疾病谱/科室排名）</td><td class="w">3</td><td>统计制度；手工汇总痛点</td><td><span class="pill p-part">部分</span></td><td>状态分布/归档率/疾病谱/借阅趋势 + 前端多维统计与CSV；<b>服务端导出接口返回 501 未实现</b></td></tr>
     <tr class="r-miss"><td>20</td><td>编码员工作量与负荷统计</td><td class="w">2</td><td>2021 版人力资源配置指标</td><td><span class="pill p-miss">缺失</span></td><td>无编码员负荷看板（有 <code>coder_name</code> 字段可支撑）</td></tr>
     <tr class="r-part"><td>21</td><td>库房架位管理与快速检索</td><td class="w">2</td><td>取卷 20+ 分钟、库位混乱</td><td><span class="pill p-part">部分</span></td><td>架位容量管理（行锁防超容）+ 自动选空架；<b>无架位管理界面、无按架位检索定位</b></td></tr>
     <tr class="r-miss"><td>22</td><td>无纸化归档</td><td class="w">2</td><td>协和无纸化研究；翻拍仓储成本</td><td><span class="pill p-miss">缺失</span></td><td>基线明确不做（不接院内临床系统）</td></tr>
-    <tr class="r-part"><td>23</td><td>归档及时率统计与催缴</td><td class="w">4</td><td>归档及时率 ≥90%</td><td><span class="pill p-part">部分</span></td><td>数据可算（时间戳齐），<b>但无专门看板、无对接医生站的自动催缴</b></td></tr>
+    <tr><td>23</td><td>归档及时率统计与催缴</td><td class="w">4</td><td>归档及时率 ≥90%</td><td><span class="pill p-ok">满足</span></td><td>及时率看板 + 超期催缴清单（同第 11 项），可按科室排名支撑"科室责任制"管理</td></tr>
   </table>
 
   <div class="note"><b>评分口径</b>：<span class="pill p-ok">满足</span> = 有界面 + 真数据可走通（1.0）；<span class="pill p-part">部分</span> = 仅 API 无界面、或实现简化需人工补（0.5）；<span class="pill p-miss">缺失</span> = 未做（0）。权重由政策刚性与痛点强度决定，非主观印象。</div>
@@ -186,47 +187,47 @@
 
 <!-- ============ ④ 差距与建议 ============ -->
 <section>
-  <h2>四、差距清单与补强建议<span class="sub">按"刚性 × 缺失程度"排序，前三项是钱与帽子的直接风险点</span></h2>
+  <h2>四、差距清单与补强建议<span class="sub">2026-10-09 批次补齐 10 项后的剩余差距</span></h2>
 
   <div class="gaps">
-    <div class="gap">
-      <h4>① DRG/DIP 预分组与编码影响预警 <em>权重 4 · 缺失 · 直接关联钱</em></h4>
-      <p>这是商业系统的核心卖点（今创等），也是病案科最刚性的需求——入组错误直接导致拒付（QY 组按 50%、0000 组按 40% 结算）。本系统完全未覆盖。</p>
-      <p class="cost"><b>建议</b>：答辩主动声明为边界（原型基线已冻结不做）；若二期推进，最小可行版 = 主诊断 + 主手术匹配校验 + 权重查表提示。</p>
-    </div>
-
-    <div class="gap">
-      <h4>② 智能编码辅助（NLP / AI 预编码） <em>权重 4 · 缺失 · 直击产能瓶颈</em></h4>
-      <p>编码员日均 44–56 份、缺口数十倍，"AI 预编码"是行业公认的减负方向。本系统只做到"手工选码 + 存在性校验"。</p>
-      <p class="cost"><b>建议</b>：不在本期范围；可作为"演进方向"在答辩中提及（技术储备：已有编码字典与编目数据结构可承接模型输出）。</p>
-    </div>
-
-    <div class="gap">
-      <h4>③ 质控退回返修闭环 <em>权重 5 · 部分 · 与临床摩擦的核心面</em></h4>
-      <p>调研显示这是病案科与临床最大的矛盾点：缺陷病案要退回医生返修，但"医生不改就无解"。我们只做到"异常落库 + 人工标记已修正"，<b>缺退回、申诉、复议、二次复核的线上闭环</b>，且质控无独立工作台页面。</p>
-      <p class="cost"><b>建议</b>：<b>优先级最高的补强项</b>（成本可控，仅需在现有质控结果上增加"退回—整改—复核"状态流转与一个质控工作台页面）。</p>
-    </div>
-
-    <div class="gap">
-      <h4>④ 时限监控与自动催办（归档及时率 / 首页 24h） <em>权重 4 · 部分 · 直接对应考核指标</em></h4>
-      <p>归档及时率 ≥90%、2 日归档率、首页 24 小时完成率都是硬指标。我们埋了时间戳但没做监控看板与催办——而"催办低效"正是调研中最扎心的痛点（每天电话 50 次）。</p>
-      <p class="cost"><b>建议</b>：<b>次优先补强项</b>（数据已具备，做一个归档时限看板 + 超期清单，成本低、演示效果好）。</p>
-    </div>
-
-    <div class="gap">
-      <h4>⑤ 条件必填校验 <em>权重 5 · 部分 · 上报退回的直接原因</em></h4>
-      <p>2020 版接口标准的一级质控含"条件必填"（损伤中毒需填外部原因、新生儿需填体重孕周等）；我们只有普通必填，这类数据会直接卡在上报环节。</p>
-      <p class="cost"><b>建议</b>：规则表已支持扩展，增加"条件表达式"字段即可支撑，成本很低。</p>
+    <div class="gap" style="border-left-color:var(--part)">
+      <h4>① 智能编码仍是规则版，未达 AI 语义水平 <em>权重 4 · 部分</em></h4>
+      <p>已实现 31 条关键词规则 + 编码推荐接口，编码员输入病历文本即可获得候选编码。但真实系统的"智能编码"依赖 NLP 解析病历内涵与上下文，需要模型能力与训练数据。</p>
+      <p class="cost"><b>定位</b>：规则版足以演示"编码辅助"的产品形态与交互；答辩时说明"AI 预编码为演进方向，现有编码字典与编目数据结构可直接承接模型输出"。</p>
     </div>
 
     <div class="gap" style="border-left-color:var(--part)">
-      <h4>⑥ 合规与长期管理（保存年限、归档锁定、数据一致性、复印服务） <em>权重 2–4 · 缺失或部分</em></h4>
-      <p>病历保存 30 年年限预警、归档后不可篡改的版本机制、上报与院内数据一致性核对、复印服务流程——这四项属"不出事时无感、出事时致命"的合规项。</p>
-      <p class="cost"><b>建议</b>：答辩中按"合规底线"说明现状与差距，不回避；复印服务已有 API 位，补界面成本中等。</p>
+      <h4>② DRG/DIP 预分组为查表版，非官方分组器 <em>权重 4 · 部分</em></h4>
+      <p>已实现 15 条示例分组规则与预检接口，可给出分组码、参考权重，以及"未匹配提示"与"高低编风险提示"。但真实分组器涉及数千条 ADRG/DRG 规则、CC/MCC 排除表与版本管理，各省权重不同。</p>
+      <p class="cost"><b>定位</b>：查表版验证了"编码影响支付"的业务逻辑与交互形态；官方分组器需授权数据，属二期。</p>
+    </div>
+
+    <div class="gap" style="border-left-color:var(--part)">
+      <h4>③ 上报通道仍为文件导出版 <em>权重 5 · 部分</em></h4>
+      <p>已实现符合国家接口标准的 CSV 导出（<code>hqmsts_</code> 前缀、18 列骨架字段、空值填 <code>-</code>）与导出前完整性检查，批次 / 回执 / 失败排查齐备。但未接通 HQMS / NCIS / 医保结算清单正式通道——官方接口规范需授权获取，调研文档亦明确"禁止以口头需求作为设计依据"。</p>
+      <p class="cost"><b>定位</b>：防腐层已留（<code>service/reportclient.go</code>），官方文档到位后替换实现即可，业务代码不动。</p>
+    </div>
+
+    <div class="gap">
+      <h4>④ 合规长期管理：保存年限 / 无纸化 / 复印服务 <em>权重 2–4 · 缺失</em></h4>
+      <p>本次已补 <b>归档锁定与变更留痕</b>（原第 17 项）与 <b>上报一致性核对</b>（原第 10 项）。仍缺：病历保存年限管理（住院 30 年 / 门诊 15 年，无字段与到期预警）、无纸化归档（基线明确不做）、病案复印服务流程（仅留 API 位）。</p>
+      <p class="cost"><b>建议</b>：保存年限加字段 + 到期预警，成本低；复印服务复用借阅子状态机，成本中等。</p>
+    </div>
+
+    <div class="gap" style="border-left-color:var(--part)">
+      <h4>⑤ 统计与人力：服务端导出、编码员负荷 <em>权重 2–3 · 部分/缺失</em></h4>
+      <p>统计域仍是全站最低（30%）：<code>/stats/export</code> 返回 501（口径待定）；编码员工作量与负荷统计（2021 版人力资源配置指标）未做——而这直接关联"编码员超负荷 → 编码质量下降"的因果链。</p>
+      <p class="cost"><b>建议</b>：数据已具备（<code>coder_name</code> 与编目时间戳），做负荷看板成本低，是性价比最高的下一批候选。</p>
+    </div>
+
+    <div class="gap" style="border-left-color:var(--part)">
+      <h4>⑥ 病案示踪缺统一时间轴 <em>权重 3 · 部分</em></h4>
+      <p>归档流水（回收 / 上架 / 封存）+ 架位绑定已可查单病案履历，但缺商业系统标配的"全流程时间轴 + 实时位置"视图；条码 / RFID 硬件对接基线明确不做。</p>
+      <p class="cost"><b>建议</b>：把已有 <code>archive_record</code> 流水聚合成时间轴视图，成本低、演示观感好。</p>
     </div>
   </div>
 
-  <div class="note"><b>结论一句话</b>：本系统覆盖了病案科<b>日常业务闭环</b>（回收—编目—质控—归档—借阅—上报），匹配度 50%；差距集中在<b>政策驱动的高价值区</b>（DRG、AI 编码、时限监控、合规长期管理）。前者证明"系统能用"，后者说明"下一步该做什么"——这也正是与商业系统的分界线所在。</div>
+  <div class="note"><b>结论</b>：本批次补齐 10 项后，刚性加权匹配度由 <b>50.0% → 78.2%</b>，满足项由 5 → 13 项，<b>质控域达 100%</b>。剩余差距分两类：一类<b>受外部条件限制</b>（官方分组器、上报通道、AI 能力，需授权数据或模型），另一类<b>成本低但未做</b>（编码员负荷、示踪时间轴、复印服务、保存年限）——后者是下一批优先级最高的候选。</div>
 </section>
 
 <footer>
