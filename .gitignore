@@ -1,0 +1,34 @@
+# ============================================================
+# 病案管理系统 .gitignore
+# 注意：.gitignore 不支持行尾注释，注释必须独占一行
+# ============================================================
+
+# ---------- 运行时产物 ----------
+data/
+mrs-backend/report-out/
+
+# ---------- 大体积本地工具与二进制（可重新下载，不入库） ----------
+tools/pg/
+tools/*.msixbundle
+tools/*.tar.gz
+tools/*.jar
+tools/pwfile.txt
+tools/enable-wsl2.log
+
+# ---------- 技能库（agent 工具，不入库；skills-lock.json 保留供还原） ----------
+.agents/
+.zcode/skills/
+
+# ---------- Go 编译产物 ----------
+mrs-backend/mrs
+mrs-backend/mrs.exe
+*.test
+
+# ---------- 编辑器与本地环境 ----------
+.idea/
+.vscode/
+*.local.yaml
+.env
+
+# ---------- 临时文件 ----------
+*.tmp

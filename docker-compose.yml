@@ -1,0 +1,50 @@
+# 病案管理系统 mrs：一键启动 postgres + redis + backend
+# 用法：docker compose up -d --build
+#      表结构首次启动由 postgres 容器自动执行 mrs-backend/sql/schema.sql
+#      后端空库时自动灌种子数据；接口 http://localhost:8080
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: mrs
+      POSTGRES_PASSWORD: mrs123456
+      POSTGRES_DB: mrs
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./mrs-backend/sql:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mrs -d mrs"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    build: ./mrs-backend
+    environment:
+      MRS_DB_DSN: "host=postgres user=mrs password=mrs123456 dbname=mrs port=5432 sslmode=disable TimeZone=Asia/Shanghai"
+      MRS_REDIS_ADDR: "redis:6379"
+      MRS_PORT: "8080"
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./data/report-out:/app/report-out
+
+volumes:
+  pgdata:

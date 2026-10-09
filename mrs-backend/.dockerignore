@@ -1,0 +1,6 @@
+.git
+.gitignore
+report-out
+*.md
+sql
+docker

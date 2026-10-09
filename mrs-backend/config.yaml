@@ -1,0 +1,23 @@
+# 本地开发默认配置；容器部署用 MRS_* 环境变量覆盖（见 docker-compose.yml）
+server:
+  port: 8080
+
+db:
+  dsn: "host=127.0.0.1 user=mrs password=mrs123456 dbname=mrs port=5432 sslmode=disable TimeZone=Asia/Shanghai"
+
+redis:
+  addr: "127.0.0.1:6379"
+  password: ""
+  db: 0
+
+jwt:
+  secret: "mrs-dev-secret-change-me"
+  hours: 72
+
+report:
+  out_dir: "./report-out"   # 本地桩上报：XML 落盘目录
+
+borrow:
+  approve_levels: 1         # 借阅审批层级数（调研确认后调整）
+  borrow_days: 30           # 默认借阅期限（天）
+  scan_minutes: 60          # 逾期扫描间隔（分钟）

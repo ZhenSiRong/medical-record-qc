@@ -1,0 +1,55 @@
+/* ============================================================
+   theme-xiayi.css —— 侠医配色对齐层（全部色值来自像素实测，见
+   prototype/xiayi_palette.py 输出；加载于 app.css 之后）
+   实测结论：
+     交互蓝 #1898f8（激活菜单/树选中） · 品牌青 #009088（工具栏/强动作）
+     强调橙 #f85020（完成类按钮） · 深炭侧栏 #283038 · 定位绿 #00f800（功能色，不采用）
+   ============================================================ */
+:root {
+  --primary: #1898f8;        /* 交互主色：侠医选中态实测值 */
+  --primary-dark: #0f7ad0;
+  --primary-light: #e3f2ff;
+  --primary-soft: #f0f8ff;
+}
+
+/* 深炭侧栏（侠医主导航实测 #283038，替换原深蓝渐变） */
+.sidebar {
+  background: linear-gradient(180deg, #283038 0%, #2c3641 100%);
+}
+
+/* 品牌青系（侠医工具栏实测 #009088）：品牌标、蓝图标位、进度条、排名条 */
+.brand-logo { background: linear-gradient(135deg, #00b09a, #009088); }
+.bg-blue    { background: linear-gradient(135deg, #00b09a, #009088); }
+.progress > i { background: linear-gradient(90deg, #00b09a, #009088); }
+.rank-row .bar > i { background: linear-gradient(90deg, #35bfa4, #009088); }
+
+/* ---------- Remix Icon 尺寸对齐（emoji → 字体图标） ---------- */
+.nav-item .ico i { font-size: 16px; line-height: 1; }
+.k-ico i { font-size: 22px; line-height: 1; }
+.empty .big i { font-size: 36px; line-height: 1; display: inline-block; margin-bottom: 6px; }
+.menu-btn i { font-size: 16px; }
+.toast i { font-size: 15px; }
+.modal .close i { font-size: 16px; }
+.alert .ai i { font-size: 15px; }
+
+/* ---------- 登录页（WP5 新增界面，样式挂在主题层，不动同事的 app.css） ---------- */
+.login-wrap {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, #283038 0%, #1d3a3a 55%, #009088 130%);
+}
+.login-card {
+  width: 380px; background: #fff; border-radius: 12px; padding: 34px 34px 26px;
+  box-shadow: 0 18px 48px rgba(10, 22, 40, 0.35);
+}
+.login-brand { display: flex; gap: 12px; align-items: center; margin-bottom: 26px; }
+.login-sub { color: #8d99ab; font-size: 12px; }
+.login-field { margin-bottom: 14px; }
+.login-field label { display: block; font-size: 12.5px; color: #5a6779; margin-bottom: 5px; }
+.login-input {
+  width: 100%; height: 38px; border: 1px solid var(--border, #e4e9f2); border-radius: 8px;
+  padding: 0 12px; font-size: 14px; outline: none; box-sizing: border-box;
+}
+.login-input:focus { border-color: #1898f8; box-shadow: 0 0 0 3px rgba(24, 152, 248, 0.15); }
+.login-btn { width: 100%; height: 40px; margin-top: 6px; font-size: 14.5px; }
+.login-quick { display: flex; gap: 8px; align-items: center; margin-top: 16px; font-size: 12.5px; color: #5a6779; flex-wrap: wrap; }
+.login-tip { margin-top: 12px; font-size: 12px; color: #a5b0c0; text-align: center; }

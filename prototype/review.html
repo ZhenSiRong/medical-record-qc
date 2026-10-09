@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>原型决策板 · WP1 逐屏签认</title>
+<style>
+  :root { --blue:#1d6ef5; --ink:#14233c; --mut:#5b6b85; --line:#e3e9f4; --bg:#f4f7fc; --green:#12a15c; --orange:#d98b13; --red:#d5433c; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:"Microsoft YaHei","PingFang SC",system-ui,sans-serif; color:var(--ink); background:var(--bg); line-height:1.7; }
+  .wrap { max-width:1080px; margin:0 auto; padding:32px 20px 64px; }
+  header.top { background:linear-gradient(135deg,#14233c,#1d3a6e); color:#fff; border-radius:14px; padding:26px 30px; margin-bottom:20px; }
+  header.top h1 { font-size:23px; }
+  header.top p { color:#c9d6e8; margin-top:6px; font-size:14px; }
+  section { background:#fff; border:1px solid var(--line); border-radius:12px; padding:22px 26px; margin-bottom:18px; }
+  section h2 { font-size:17px; padding-left:10px; border-left:4px solid var(--blue); margin-bottom:12px; }
+  img.shot { width:100%; border:1px solid var(--line); border-radius:8px; margin:10px 0 14px; box-shadow:0 2px 10px rgba(20,35,60,.08); }
+  table { width:100%; border-collapse:collapse; font-size:13.5px; margin:8px 0; }
+  th,td { border:1px solid var(--line); padding:7px 10px; text-align:left; vertical-align:top; }
+  th { background:#f0f4fb; }
+  .tag { display:inline-block; font-size:12px; padding:2px 10px; border-radius:12px; margin-right:6px; font-weight:600; }
+  .t-blue{background:#e5efff;color:#1d6ef5}.t-green{background:#e2f6ec;color:var(--green)}
+  .t-orange{background:#fdf1de;color:var(--orange)}.t-red{background:#fdeae9;color:var(--red)}
+  .t-gray{background:#eef1f6;color:var(--mut)}
+  .keep{color:var(--green);font-weight:700}.mod{color:#1d6ef5;font-weight:700}.cut{color:var(--red);font-weight:700}.add{color:var(--orange);font-weight:700}
+  .dp { background:#f7faff; border:1px dashed #b9cdf2; border-radius:8px; padding:10px 14px; margin-top:12px; font-size:13.5px; }
+  .dp b { color:#0b5bd3; }
+  ol.dec li { margin:6px 0; font-size:14px; }
+  ul li { margin:4px 0; font-size:14px; }
+  code { background:#eef2fa; padding:1px 6px; border-radius:4px; font-size:12.5px; font-family:Consolas,monospace; color:#0b5bd3; }
+  footer { text-align:center; color:var(--mut); font-size:12.5px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <h1>原型决策板 · WP1 逐屏签认</h1>
+  <p>全局「不做什么」清单 + 侠医 DMRMS 视觉基准（实测对齐） + 六屏「保留/改/删/加」建议 + 10 个待拍板决策点。逐屏过一遍，回复决策编号即可；签认后本页即冻结为原型范围基线。</p>
+</header>
+
+<section>
+  <h2>签认前先看：全局「不做什么」清单（建议冻结）</h2>
+  <ul>
+    <li><span class="tag t-red">不做</span>DRG / DIP 预分组 —— 真实系统重头戏但超出课程范围（今创等厂商核心卖点，仅答辩口头提及即可）</li>
+    <li><span class="tag t-red">不做</span>无纸化病案 / HIS-EMR 自动采集 —— 我们的手工登记即演示口径</li>
+    <li><span class="tag t-red">不做</span>条码 / RFID 病案示踪 —— 保留架位概念即可</li>
+    <li><span class="tag t-red">不做</span>服务端分页 —— 前端全量内存模型（演示规模 ≤ 数百条），不改组件就不做</li>
+    <li><span class="tag t-gray">仅 API</span>封存、架位管理、操作日志查询 —— 后端已有接口，本期不做界面</li>
+    <li><span class="tag t-gray">命名对齐</span>质控规则口径对齐官方「完整性/一致性/逻辑性」，上报通道命名 HQMS 演示通道（P1 文案级改动）</li>
+  </ul>
+</section>
+
+<section>
+  <h2>视觉基准 · 侠医 DMRMS 实测对齐（拾色器 + 标尺，非目测）</h2>
+  <p style="font-size:14px;">参考对象：<a href="https://www.ixiayi.net/dmrms.htm" target="_blank">侠医《数字化病案管理系统》</a>工作站界面（1920×1079 实拍）。用像素采样脚本（<code>prototype/xiayi_palette.py</code>）实测其配色与布局，再用浏览器实测我们 demo 的同位尺寸，逐项对照：</p>
+  <img class="shot" src="reference/xiayi-workstation.jpg" alt="侠医工作站实拍">
+  <table>
+    <tr><th>实测项</th><th>侠医（像素采样）</th><th>demo（浏览器实测）</th><th>对齐动作</th></tr>
+    <tr><td><b>交互主色</b>（激活菜单/树选中）</td><td><code>#1898f8</code> 亮蓝</td><td><code>#1d6ef5</code></td><td>主题层换为 #1898f8（同色相，侠医实测值）</td></tr>
+    <tr><td><b>品牌青</b>（工具栏/强动作/进度）</td><td><code>#009088</code></td><td>无</td><td>新增第二主色：logo、KPI 蓝位、进度条、图表序列首色</td></tr>
+    <tr><td><b>强调橙</b>（完成类按钮）</td><td><code>#f85020</code></td><td>--warning #d98b13</td><td>不迁移（demo 语义色已够用，避免过冲）</td></tr>
+    <tr><td><b>侧栏底色</b></td><td><code>#283038</code> 炭灰</td><td>深蓝渐变 rgb(20,35,60)</td><td>换炭灰渐变 #283038→#2c3641</td></tr>
+    <tr><td><b>扫描定位绿</b></td><td><code>#00f800</code></td><td>—</td><td>功能色不采用（属扫描仪工位）</td></tr>
+    <tr><td><b>侧栏宽度占比</b></td><td><b>10.4%</b>（199/1920，1280 下≈133px）</td><td><b>17.0%</b>（218/1280）</td><td>见 D10：侠医是纯图标小字号工位导航，demo 导航更大气</td></tr>
+    <tr><td><b>工具栏高度</b></td><td>40px@1920（双行：标签栏+工具栏）</td><td>单行顶栏 60px@1280</td><td>布局模式差异，归 D10</td></tr>
+    <tr><td><b>圆角</b></td><td>≈直角（工位软件风）</td><td>--radius 10px</td><td>归 D10（改圆角属全局气质变更）</td></tr>
+    <tr><td><b>右信息面板</b></td><td>常驻 ≈17%（病案信息/分类）</td><td>无（详情用抽屉）</td><td>归 D10 工位式布局</td></tr>
+  </table>
+  <p style="font-size:13.5px;"><b>按实测色应用后的效果</b>（<a href="../frontend/index-green.html" target="_blank">打开整页预览</a>），并经拾色器回测：激活导航/环图实测 <code>#1898f8</code> 与目标零偏差；侧栏 <code>#2a333d</code>≈#283038；logo 主色 <code>#00a090</code>、进度条两端 <code>#36bea3→#018f87</code> 均落在青色渐变域内——<b>实测 → 应用 → 回测，全命中</b>：</p>
+  <img class="shot" src="screenshots/07-xiayi-theme-dashboard.png" alt="侠医实测配色应用效果">
+  <div class="dp"><b>决策 D9 色板</b>：(a) 按实测双主色方案生效（交互蓝 #1898f8 + 品牌青 #009088 + 炭灰侧栏 #283038，主题层零组件改动）<span class="keep">推荐</span>；(b) 保持 demo 原蓝 #1d6ef5 不动；(c) 全站改青绿主导（--primary 也换青，注意：与侠医实测不符，他们交互色就是蓝）</div>
+  <div class="dp"><b>决策 D10 布局</b>：(a) 保持卡片布局+新色板 <span class="keep">推荐</span>；(b) 仅编目页试点「工位式三栏」（左待编队列 + 中工作区 + 右信息面板，对齐侠医，估 0.5 天）；(c) 全站工位化（侧栏收窄 133px、直角化、顶栏改双行，估 2 天+全组件回归）</div>
+</section>
+
+<section>
+  <h2>屏 1 · 工作台</h2>
+  <img class="shot" src="prototype/screenshots/01-dashboard.png" alt="工作台">
+  <table>
+    <tr><th>元素</th><th>判定</th><th>说明</th></tr>
+    <tr><td>KPI 卡 ×9、月度趋势、状态环图、科室排名</td><td class="keep">保留</td><td>改由真数据计算（数据全量在前端内存）</td></tr>
+    <tr><td>待办中心 / 最近操作动态</td><td class="mod">改</td><td>动态从 localStorage 假数据 → 后端 oper_log 真审计流</td></tr>
+    <tr><td>「重置数据」按钮</td><td class="cut">删</td><td>接真库后无意义（重置=清空数据库，危险且不合规）</td></tr>
+  </table>
+  <div class="dp"><b>决策 D1</b>：平均费用 / 平均住院日两个 KPI 后端暂无统计接口 —— (a) 前端内存计算，零成本 <span class="keep">推荐</span>；(b) 砍掉这两个卡片</div>
+</section>
+
+<section>
+  <h2>屏 2 · 病案归档</h2>
+  <img class="shot" src="prototype/screenshots/02-archive.png" alt="病案归档">
+  <table>
+    <tr><th>元素</th><th>判定</th><th>说明</th></tr>
+    <tr><td>病案登记表单（患者/科室/医师/出入院）</td><td class="keep">保留</td><td>→ POST /records；表单里的诊断/编码/费用落首页表</td></tr>
+    <tr><td>多条件检索、批量归档、详情抽屉、CSV 导出</td><td class="keep">保留</td><td>批量归档 → 批量回收（后端归档流水留痕）</td></tr>
+    <tr><td>删除按钮</td><td class="mod">改</td><td>点击提示「病案依法不得删除」（合规），按钮不删</td></tr>
+    <tr><td>页数字段（pageCount）</td><td class="mod">改</td><td>后端无对应，固定值展示或置灰</td></tr>
+  </table>
+  <div class="dp"><b>决策 D2</b>：删除按钮 —— (a) 禁用+合规提示 <span class="keep">推荐</span>；(b) 保留可删（仅演示）</div>
+</section>
+
+<section>
+  <h2>屏 3 · 病案编目</h2>
+  <img class="shot" src="prototype/screenshots/03-catalog.png" alt="病案编目">
+  <table>
+    <tr><th>元素</th><th>判定</th><th>说明</th></tr>
+    <tr><td>待编目队列（左侧滚动列表）</td><td class="keep">保留</td><td>= 回收待编目病案，语义与后端完全一致</td></tr>
+    <tr><td>ICD-10 / ICD-9-CM3 选码联动</td><td class="keep">保留</td><td>字典从后端拉（含 Redis 检索接口）</td></tr>
+    <tr><td>编目提交</td><td class="mod">改</td><td>一键 = 编目 + 首页落库 + 自动质控 + 自动上架（后端动作链）</td></tr>
+    <tr><td>质量分级（甲/乙/丙）</td><td class="mod">改</td><td>由质控结果推导：无异常→甲，仅 WARN→乙，有 ERROR→丙</td></tr>
+  </table>
+  <div class="dp"><b>决策 D3</b>：质量等级来源 —— (a) 质控结果自动推导 <span class="keep">推荐，答辩亮点</span>；(b) 编目员手工选择（现状）</div>
+</section>
+
+<section>
+  <h2>屏 4 · 病案借阅</h2>
+  <img class="shot" src="prototype/screenshots/04-borrow.png" alt="病案借阅">
+  <table>
+    <tr><th>元素</th><th>判定</th><th>说明</th></tr>
+    <tr><td>借阅申请（病案选择/借期/事由七选一）</td><td class="keep">保留</td><td>→ 后端申请接口，借期=应还时间</td></tr>
+    <tr><td>审批通过 / 驳回（附意见）</td><td class="keep">保留</td><td>通过 = approve+lend 链式（后端多级审批保留）</td></tr>
+    <tr><td>归还、逾期监控、催还预警</td><td class="keep">保留</td><td>后端有定时催还任务，真数据</td></tr>
+    <tr><td>续借（+7 天）</td><td class="add">加后端</td><td>需新增续借端点（约 15 行，随 WP3 交付）</td></tr>
+  </table>
+  <div class="dp"><b>决策 D4</b>：续借 —— (a) 做后端端点 <span class="keep">推荐，成本低</span>；(b) 砍掉续借按钮</div>
+</section>
+
+<section>
+  <h2>屏 5 · 数据统计</h2>
+  <img class="shot" src="prototype/screenshots/05-statistics.png" alt="数据统计">
+  <table>
+    <tr><th>元素</th><th>判定</th><th>说明</th></tr>
+    <tr><td>病案量趋势 / 疾病谱 / 科室明细 / 费用住院日分布</td><td class="keep">全保留</td><td>数据源换成后端真数据</td></tr>
+    <tr><td>质量等级分布图</td><td class="keep">保留</td><td>依赖 D3 的质控推导结果</td></tr>
+    <tr><td>CSV 导出</td><td class="keep">保留</td><td>前端 Blob 导出不变</td></tr>
+  </table>
+  <div class="dp"><b>决策 D5</b>：统计口径 —— (a) 前端内存计算（零适配）<span class="keep">推荐</span>；(b) 走后端 /stats/* 接口再渲染（更真实，适配层多一块）</div>
+</section>
+
+<section>
+  <h2>屏 6 · 首页数据上报</h2>
+  <img class="shot" src="prototype/screenshots/06-report.png" alt="首页数据上报">
+  <table>
+    <tr><th>元素</th><th>判定</th><th>说明</th></tr>
+    <tr><td>批次列表 / 新建批次（选月份）</td><td class="keep">保留</td><td>→ 真批次表；状态：待上报/已接收/已退回</td></tr>
+    <tr><td>上报前校验面板（问题清单）</td><td class="mod">改</td><td>展示后端质控结果（逐字段异常），非纯前端校验</td></tr>
+    <tr><td>执行上报 / 数据包导出</td><td class="keep">保留</td><td>→ 真批次提交 + XML 落盘桩回执</td></tr>
+  </table>
+  <div class="dp"><b>决策 D6</b>：校验面板数据源 —— (a) 后端质控结果 <span class="keep">推荐，真数据</span>；(b) 纯前端字段校验（现状）</div>
+</section>
+
+<section>
+  <h2>额外两个范围决策</h2>
+  <ol class="dec">
+    <li><b>D7 病案复印服务</b>（真实系统标配：患者/司法复印申请-受理-在场复印）：(a) 本期不做，留 API 位 <span class="keep">推荐</span>；(b) P1 加（一张表+两个接口+一个页面，约半天）</li>
+    <li><b>D8 登录页样式</b>：(a) 沿用 demo 现有设计语言（深蓝卡片风）<span class="keep">推荐</span>；(b) 另出设计稿再确认</li>
+  </ol>
+</section>
+
+<section>
+  <h2>怎么签认</h2>
+  <ul>
+    <li>全局清单 + 视觉基准（D9/D10）+ 六屏（D1-D8）全部过完后回复决策，例：<code>D1a、D2a、…、D8a、D9a、D10a</code>（全推荐项）</li>
+    <li>任何一屏想改布局/字段，直接指屏说，我改完重新截图更新本页</li>
+    <li>全部签认后：色板经主题层并入 <code>app.css</code>，本页 + screenshots/ 冻结为原型基线，WP2 据此拆故事开工</li>
+  </ul>
+</section>
+
+<footer>原型决策板 · 与 plan.html、DESIGN.md 同源维护 · 截图取自 8090 运行中的同事 demo</footer>
+</div>
+</body>
+</html>

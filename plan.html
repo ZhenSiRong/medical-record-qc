@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>病案管理系统 · 前端集成方案（已审批）</title>
+<style>
+  :root { --blue:#1d6ef5; --ink:#14233c; --mut:#5b6b85; --line:#e3e9f4; --bg:#f4f7fc; --green:#12a15c; --orange:#d98b13; --red:#d5433c; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:"Microsoft YaHei","PingFang SC",system-ui,sans-serif; color:var(--ink); background:var(--bg); line-height:1.7; }
+  .wrap { max-width:980px; margin:0 auto; padding:32px 20px 64px; }
+  header.top { background:linear-gradient(135deg,#14233c,#1d3a6e); color:#fff; border-radius:14px; padding:28px 30px; margin-bottom:20px; }
+  header.top h1 { font-size:24px; letter-spacing:1px; }
+  header.top p { color:#c9d6e8; margin-top:6px; font-size:14px; }
+  .badges { margin-top:14px; display:flex; gap:10px; flex-wrap:wrap; }
+  .badge { font-size:12.5px; padding:4px 12px; border-radius:20px; background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.25); }
+  .badge b { color:#8fd3ff; }
+  .links { display:flex; gap:12px; margin-top:18px; flex-wrap:wrap; }
+  .links a { display:inline-block; background:#fff; color:var(--blue); font-weight:600; text-decoration:none; padding:9px 18px; border-radius:8px; font-size:14px; box-shadow:0 2px 8px rgba(20,35,60,.18); }
+  .links a:hover { transform:translateY(-1px); }
+  section { background:#fff; border:1px solid var(--line); border-radius:12px; padding:22px 26px; margin-bottom:18px; }
+  section h2 { font-size:17px; padding-left:10px; border-left:4px solid var(--blue); margin-bottom:12px; }
+  table { width:100%; border-collapse:collapse; font-size:13.5px; margin:8px 0; }
+  th,td { border:1px solid var(--line); padding:7px 10px; text-align:left; vertical-align:top; }
+  th { background:#f0f4fb; }
+  code { background:#eef2fa; padding:1px 6px; border-radius:4px; font-size:12.5px; font-family:Consolas,monospace; color:#0b5bd3; }
+  ul,ol { padding-left:22px; }
+  li { margin:4px 0; font-size:14px; }
+  .tag { display:inline-block; font-size:12px; padding:2px 10px; border-radius:12px; margin-right:6px; font-weight:600; }
+  .t-blue { background:#e5efff; color:#1d6ef5; } .t-green { background:#e2f6ec; color:var(--green); }
+  .t-orange { background:#fdf1de; color:var(--orange); } .t-gray { background:#eef1f6; color:var(--mut); }
+  .t-red { background:#fdeae9; color:var(--red); }
+  .status { border-left:none; padding-left:0; }
+  .status h2 { border-color:var(--green); }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:0 24px; }
+  @media (max-width:760px){ .grid2 { grid-template-columns:1fr; } }
+  .note { font-size:12.5px; color:var(--mut); margin-top:10px; }
+  footer { text-align:center; color:var(--mut); font-size:12.5px; margin-top:8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <h1>病案管理系统 · 前端集成方案</h1>
+  <p>同事 Vue3 演示前端 × Go 后端（PG + Redis + Docker）· 适配层集成路线 · 2026-09-18 已审批</p>
+  <div class="badges">
+    <span class="badge">定位：<b>适配层集成，演示主力</b></span>
+    <span class="badge">状态机：<b>以后端为准，投影显示</b></span>
+    <span class="badge">登录：<b>登录页 + 角色切换</b></span>
+    <span class="badge">验收：<b>视觉伴侣（真渲染截图）</b></span>
+  </div>
+  <div class="links">
+    <a href="frontend/index.html">→ 打开前端演示（当前为原版 localStorage 模式）</a>
+    <a href="mrs-backend/docs/API.md">→ 后端 API 契约（Markdown 原文）</a>
+  </div>
+</header>
+
+<section>
+  <h2>当前状态</h2>
+  <ul>
+    <li><span class="tag t-green">已完成</span> Go 后端骨架：归档 / 编目 / 借阅（多级审批+逾期催还）/ 统计 / 首页质控 / 上报 XML 桩 / JWT 登录 / 操作审计，<code>go build</code> · <code>go test</code> 通过，Docker Compose 一键启动</li>
+    <li><span class="tag t-green">已完成</span> 前端已入库 <code>frontend/</code>（同事原版，8 个页面组件 + 手写 SVG 图表，零第三方依赖）</li>
+    <li><span class="tag t-orange">进行中</span> 适配层 <code>js/api-store.js</code>：替换 localStorage 数据层，组件零改动接真后端</li>
+    <li><span class="tag t-gray">待办</span> 登录页改造（唯一需要动的组件 layout.js）→ P1 打磨 → P2 部署收口</li>
+  </ul>
+</section>
+
+<section>
+  <h2>一、核心思路：只换数据层，不动界面</h2>
+  <p style="font-size:14px;">前端 8 个页面组件<strong>一行不改</strong>（除登录改造的 layout.js），把 <code>js/store.js</code>（localStorage 模拟数据）替换为 <code>js/api-store.js</code>：对外仍是同一个 <code>window.MRMS</code> 接口（state / actions / stats / util），内部改走 REST 调 Go 后端，数据真实落 PostgreSQL。统计纯函数从 store.js 原样搬用。</p>
+  <table>
+    <tr><th>层</th><th>来源</th><th>改动</th></tr>
+    <tr><td>页面组件 ×7 + 图表</td><td>同事原版</td><td>零改动</td></tr>
+    <tr><td>layout.js 外壳</td><td>同事原版</td><td>加登录卡片 + 退出按钮</td></tr>
+    <tr><td>api-store.js 数据层</td><td>新写</td><td>REST 拉全量驻留内存 + 状态投影 + 动作链</td></tr>
+    <tr><td>Go 后端</td><td>已完成骨架</td><td>+3 处小增量（见第四节）</td></tr>
+  </table>
+</section>
+
+<section>
+  <h2>二、状态投影表（后端状态机为准，界面显示 demo 中文词）</h2>
+  <div class="grid2">
+    <table>
+      <tr><th>病案后端状态</th><th>界面显示</th></tr>
+      <tr><td><code>NOT_RECYCLED</code> 未回收</td><td><span class="tag t-orange">未归档</span></td></tr>
+      <tr><td><code>RECYCLED</code> 已回收(待编目)</td><td><span class="tag t-green">已归档</span>（喂给编目队列，语义与 demo 一致）</td></tr>
+      <tr><td><code>CATALOGED / ARCHIVED / BORROWED / SEALED</code></td><td><span class="tag t-blue">已编目</span></td></tr>
+    </table>
+    <table>
+      <tr><th>借阅 / 上报状态</th><th>界面显示</th></tr>
+      <tr><td><code>APPLYING / RETURNED / OVERDUE / REJECTED</code></td><td>待审批 / 已归还 / 已逾期 / 已驳回</td></tr>
+      <tr><td>首页 <code>QC_PASSED → REPORTED</code></td><td>待上报 → 已上报</td></tr>
+      <tr><td>批次 <code>PENDING / SUCCESS / FAILED·PARTIAL</code></td><td>待上报 / 已接收 / 已退回</td></tr>
+    </table>
+  </div>
+  <p class="note">真实六态保留在数据库与 API；投影只是显示层的单向翻译，可随时还原完整状态。</p>
+</section>
+
+<section>
+  <h2>三、动作链映射（demo 一个按钮 = 后端一组真实调用）</h2>
+  <table>
+    <tr><th>界面动作</th><th>后端调用链</th></tr>
+    <tr><td>病案登记</td><td><code>POST /records</code> + <code>PUT /front-pages</code>（诊断/费用落首页表）</td></tr>
+    <tr><td>归档（单个/批量）</td><td><code>POST /archives/recycle</code>（落归档流水）</td></tr>
+    <tr><td>编目</td><td><code>POST /catalogs</code> + <code>PUT /front-pages</code> + <code>POST /qc</code>（自动质控）+ 自动上架 <code>POST /archives/shelve</code></td></tr>
+    <tr><td>借阅「通过」</td><td><code>approve</code> + <code>lend</code> 链式（折叠后端两步）；驳回 / 归还各一个 PUT</td></tr>
+    <tr><td>续借</td><td>后端新增 <code>PUT /api/borrows/:id/renew</code></td></tr>
+    <tr><td>删除病案</td><td>不删，提示「病案依法不得删除」（合规）</td></tr>
+    <tr><td>质量等级 甲/乙/丙</td><td>由真实质控结果推导：无异常→甲，仅 WARN→乙，有 ERROR→丙</td></tr>
+    <tr><td>新建上报批次</td><td>按月份收集 QC_PASSED 的 recordIds → <code>POST /report-batches</code></td></tr>
+  </table>
+</section>
+
+<section>
+  <h2>四、后端小增量（3 处，不影响既有接口）</h2>
+  <ol>
+    <li><code>med_record</code> 加 <code>archived_at / cataloged_at</code> 两列（AutoMigrate 自动加列）——归档日期 / 今日编目数需要真数据</li>
+    <li>新增续借端点 <code>PUT /api/borrows/:id/renew</code></li>
+    <li>种子扩充：科室 6→10、医师 4→12、ICD-10 6→24 条、ICD-9-CM3 4→11 条（demo 同款码表）</li>
+  </ol>
+</section>
+
+<section>
+  <h2>五、登录与角色</h2>
+  <ul>
+    <li>新增登录卡片：账号密码 + admin / deptuser 快捷按钮；顶栏加退出</li>
+    <li>顶栏与侧栏身份从 <code>/auth/me</code> 回填真实用户</li>
+    <li>deptuser 触发病案室操作时，后端 403 → 前端 toast 提示无权限（权限全在后端，前端零权限代码）</li>
+    <li>token 存 sessionStorage，任意请求 401 自动回登录页</li>
+  </ul>
+</section>
+
+<section>
+  <h2>六、工作分解</h2>
+  <ul>
+    <li><span class="tag t-red">P0</span>打通闭环：api-store 骨架（登录 / 拉数 / 投影）→ 登录页改造 → 登记→归档→编目→借阅→上报全链路真数据落库</li>
+    <li><span class="tag t-orange">P1</span>打磨：工作台接 oper_log 真动态、质量等级推导、续借端点、图表真数据核对、种子扩充</li>
+    <li><span class="tag t-gray">P2</span>收口：<code>go:embed</code> 前端嵌进单二进制（一个 URL 交付）、CSV 导出列对齐</li>
+    <li><span class="tag t-blue">验收</span>视觉伴侣贯穿：每个里程碑用浏览器实际操作 + 截图核对（登录样式、状态徽章颜色、编目选码联动、图表数据、批次流转）</li>
+  </ul>
+</section>
+
+<section>
+  <h2>七、已知取舍（已确认接受）</h2>
+  <ul>
+    <li>前端全量内存模型：演示规模上限约数百条（demo 原生形态，不改组件无法服务端分页）</li>
+    <li>借阅 APPROVED（待借出）中间态被「通过」折叠，不单独展示</li>
+    <li>病案删除禁用（合规）；pageCount 无后端对应字段，隐藏或固定值</li>
+    <li>封存 / 架位管理等后端能力暂无界面，仅 API 提供</li>
+  </ul>
+</section>
+
+<footer>病案管理系统 mrs · 方案页 · 适配层集成路线 · 与 DESIGN.md / mrs-backend/docs/API.md 同步维护</footer>
+</div>
+</body>
+</html>
