@@ -10,9 +10,27 @@
 
 ## 演示
 
-> 下面这段动图取自 **48.5 秒实机录屏**（Playwright 驱动本机 Chrome、2 fps 抽帧，无模拟数据、无截图拼接）：编目 → 选病案 → 质控工作台 → CC/MCC 严重度预览 → 填报其他诊断 → 保存重判 → 跑质控 → 回看两条 WARN。
+本仓库有**两套实机录屏**，互补而非重复：
+
+| 录屏 | 时长 | 覆盖 | 适合谁看 |
+|---|---|---|---|
+| **① 全系统总览**（`tour/demo.webm`） | 78.7 秒 | **8 个菜单页全部走一遍**，每页展示核心内容 + 打开该域关键弹窗 | 想先知道「这系统长什么样」的人 |
+| **② CC/MCC 深度演示**（`ccmcc-demo-20261106.webm`） | 48.5 秒 | 首页质控与 CC/MCC 严重度预警的**完整操作闭环** | 想学「CC/MCC 预警怎么用」的人 |
+| **③ 各功能域深度演示**（`archive/ borrow/ stats/ quality/ report/ rectify/ ai-assist/`） | 各 30–90 秒 | 单域**操作闭环**（真点按钮、真跑流程、真落库） | 想逐个功能看操作过程的人 |
+
+### ① 全系统总览（78.7 秒 · 8 个菜单页）
+
+> 下面是**实机录屏**（Playwright 驱动本机 Chrome 真实点击，非模拟、非拼接）：登录 → 工作台 → 病案归档 → 归档详情 → 病案编目 → 质控工作台 → 病案借阅 → 借阅申请 → 数据统计 → 首页数据上报 → 质量看板 → 我的待整改 → CC/MCC 严重度预警。
 >
-> 画面里带**人工化操作标注**：橙色鼠标光标、点击涟漪、被点元素高亮，以及顶部「步骤 N/9」进度条。它们由录屏脚本**注入页面**，**不是产品 UI** —— 目的是让观众不用倒带也能看清操作顺序。
+> 画面带**人工化操作标注**：橙色鼠标光标、点击涟漪、被点元素高亮，以及顶部「步骤 N/12」进度条 —— 由录屏脚本**注入页面**，**不是产品 UI**，目的是让观众不用倒带也能看清操作顺序。
+
+<img src="https://gcore.jsdelivr.net/gh/ZhenSiRong/medical-record-qc@main/docs/screenshots/tour/demo.gif" width="620" alt="全系统总览：8 个菜单页依次走一遍的操作动图">
+
+[打开 GIF 原图](docs/screenshots/tour/demo.gif) · [全屏播放完整录屏（WEBM，78.7 秒，10.3 MB）](https://gcore.jsdelivr.net/gh/ZhenSiRong/medical-record-qc@main/docs/screenshots/tour/demo.webm) · [录屏脚本](tools/shot-tour.js)
+
+### ② CC/MCC 深度演示（48.5 秒）
+
+> 下面这段动图取自 **48.5 秒实机录屏**（Playwright 驱动本机 Chrome、2 fps 抽帧，无模拟数据、无截图拼接）：编目 → 选病案 → 质控工作台 → CC/MCC 严重度预览 → 填报其他诊断 → 保存重判 → 跑质控 → 回看两条 WARN。
 >
 > GitHub 不支持在 README 内嵌视频；且 GitHub 原生相对路径会走 `raw.githubusercontent.com`，国内网络常加载失败，因此图片统一走 **jsDelivr CDN**，并在每张图下给出仓库内原图兜底链接。
 
@@ -21,6 +39,50 @@
 [打开 GIF 原图](docs/screenshots/demo.gif) · [下载 / 全屏播放完整录屏（WEBM，48.5 秒，5.9 MB）](https://gcore.jsdelivr.net/gh/ZhenSiRong/medical-record-qc@main/docs/screenshots/ccmcc-demo-20261106.webm) · [录屏驱动脚本](tools/shot-ccmcc.js)
 
 > **光标是怎么进画面的**：Playwright 录屏默认**不录系统指针**（headless 下根本没有指针），所以脚本往页面里注入了一个跟随真实 `mousemove` 的虚拟光标；同理 `mouse.move(..., {steps})` 走完只要几毫秒、25fps 只会拍到「瞬移」，因此鼠标轨迹是脚本自己**分步插值 + 逐步延时**画出来的。两处都是「让录屏可读」的技术处理，与产品功能无关。
+
+### ③ 各功能域深度演示
+
+> 每个功能域一段独立录屏，各自跑完整操作闭环（真点按钮、真跑流程、真落库）。
+> 录制脚本全部在 `tools/` 下，可复现；每段都有程序化断言（`console.log` 输出计数与状态），**不靠肉眼看图判绿**。
+>
+> 所有录屏共享 `tools/shot-lib.js` 里的**「人类化操作层」**：虚拟光标、点击涟漪、被点元素高亮、顶部步骤条、拟人点击与逐字打字。标注是**注入页面的**，不是产品 UI。
+
+| 功能域 | 录屏 | 演示脚本 | 演示内容 |
+|---|---|---|---|
+| 全系统总览 | `docs/screenshots/tour/demo.webm` | `tools/shot-tour.js` | **12 步走完 8 个菜单页**：工作台 → 归档 → 归档详情 → 编目 → 质控工作台 → 借阅 → 借阅申请 → 统计 → 上报 → 质量看板 → 待整改 → CC/MCC 预览（78.7 秒） |
+| 病案归档 | `docs/screenshots/archive/demo.webm` | `tools/shot-archive-borrow.js` | 归档列表（10 行 / 共 87 份）、详情抽屉（19 个字段）、登记表单（15 项，**填了不提交**）、批量归档入口、导出清单（50.3 秒） |
+| 病案借阅 | `docs/screenshots/borrow/demo.webm` | `tools/shot-archive-borrow.js` | 申请 → 审批 → 借出 → **续借 7 天** → 归还核销 → 台账导出 → 逾期标红（63.3 秒） |
+| 数据统计 | `docs/screenshots/stats/demo.webm` | `tools/shot-stats-quality.js` | 8 张图表（状态环图 / 疾病分类 / 质量等级 / 趋势 / 住院日与费用分布）+ 科室明细表 + 导出（56.3 秒） |
+| 质量看板 | `docs/screenshots/quality/demo.webm` | `tools/shot-stats-quality.js` | 2 日归档率 **16.1%** / 3 日 **28.7%** / 平均归档天数 **9.87** / 月度趋势 / 科室排名 / 超期催缴清单（50.6 秒） |
+| 首页上报 | `docs/screenshots/report/demo.webm` | `tools/shot-report.js` | 批次管理 → 新建批次 → 上报前校验 → **一致性核对** → 导出前检查 → 导出 CSV（88.3 秒） |
+| 我的待整改（病案室） | `docs/screenshots/rectify/demo.webm` | `tools/shot-rectify-ai.js` | 整改督办清单、修正首页数据弹窗（带退回意见原文）、刷新（30.6 秒） |
+| 我的待整改（临床） | `docs/screenshots/rectify-clinical/demo-clinical.webm` | `tools/shot-rectify-ai.js` | **科室医师视角**：待整改清单 → 提交整改 → 填写整改说明 → 提交成功（27.2 秒） |
+| 智能辅助 | `docs/screenshots/ai-assist/demo.webm` | `tools/shot-rectify-ai.js` | 智能预编码推荐（`K35.801 急性阑尾炎 命中「阑尾炎」· 权重 10`）、DRG/DIP 预检、免责措辞逐字（36.7 秒） |
+
+**怎么自己重录一遍**（仓库根目录）：
+
+```bash
+# 本机沙箱会在每次工具调用结束时回收子进程 ⇒ 用包装器把「起服务 + 跑脚本」放进同一个调用
+bash tools/with-services.sh tools/shot-tour.js                  # 全系统总览
+SHOT_VIDEO=1 bash tools/with-services.sh tools/shot-tour.js    # 同上（录视频）
+
+bash tools/with-services.sh tools/shot-archive-borrow.js       # 归档 + 借阅
+bash tools/with-services.sh tools/shot-stats-quality.js        # 统计 + 质量看板
+bash tools/with-services.sh tools/shot-report.js               # 上报
+bash tools/with-services.sh tools/shot-rectify-ai.js           # 待整改 + 智能辅助
+bash tools/with-services.sh tools/shot-ccmcc.js               # CC/MCC 深度演示
+
+bash tools/compress-videos.sh 3        # 批量压缩（VP9/CRF，README 挂 CDN 需要）
+```
+
+> 依赖 `playwright-core`（**不下载浏览器内核**，直接驱动本机已装的 Chrome）+ 本机已启动的后端 :8080 / 前端 :8090 / PostgreSQL。
+> 动图合成：`python tools/make-gif.py <帧目录> <输出.gif>`（Pillow 统一调色板，避免帧间色带；自动剔除开头的空白起幅帧）。
+>
+> **踩过的坑**（写在这里省后来人时间）：
+> - `S.click()` 对**视口外**的元素会点空（`boundingBox()` 是页面坐标，`mouse.move` 是视口坐标）→ 库里已内置 `scrollIntoViewIfNeeded`。
+> - 原生 `confirm()` 会被 Playwright 默认 dismiss **静默中止** → 必须 `page.on('dialog', d => d.accept())`。
+> - 注入的步骤条 `#vb-steps` 会盖住 `.toasts` 提示 → 需要 `.toasts{top:74px !important;}`。
+> - Playwright 自带 ffmpeg 是**精简版**：有 vp9 编码器但**没有 concat 滤镜 / concat demuxer / gif 编码器** ⇒ webm 拼接只能改走「重新录一条」，GIF 只能走「抽帧 → Pillow」。
 
 ### 演示动线：9 步，每步都有可验证的断言
 
@@ -103,6 +165,27 @@
 | 8 | 基础数据 | 科室、医师、ICD 编码库（版本化）、架位、通用字典 | 后端 API（无独立界面） |
 | 9 | 合规安全 | 操作日志审计、数据权限范围、病案禁删、封存冻结、归档后变更留痕 | 工作台动态 / 后端约束 |
 | 10 | 智能与决策辅助 | 规则版预编码推荐、DRG/DIP 入组预检、归档及时率与超期催缴、**CC/MCC 严重度预警** | 编目页弹窗 / 质量看板 / 质控工作台 |
+
+> **完整功能清单（含逐条功能的界面入口、实现状态、演示覆盖标记）见 [`docs/功能清单.md`](docs/功能清单.md)** —— 那份文档按 10 个功能域逐条列到「用户可感知的操作粒度」，并标注每条是「有界面」「仅后端 API」还是「规则驱动无专属界面」。
+
+### 1.1 功能演示覆盖矩阵
+
+把「哪些功能有视频」摊开看，避免「README 说有、点进去没有」：
+
+| 功能域 | 有界面 | 有视频 | 仅后端 API（无界面） |
+|---|---|---|---|
+| 登录与权限 | ✅ | ✅ 总览片 + 主线片 | ADMIN 操作拦截、当前用户信息 |
+| 病案归档 | ✅ | ✅ `archive/` | 封存、流转履历、架位 CRUD |
+| 病案编目 | ✅ | ✅ 主线片 + `ai-assist/` | 编目变更留痕（`revisions` 已封装未调用） |
+| 病案借阅 | ✅ | ✅ `borrow/` | 审批链追溯、人工催还 |
+| 数据统计 | ✅ | ✅ `stats/` | — |
+| 首页质控 | ✅ | ✅ 主线片 + `rectify/` | 归档锁定、首页变更留痕、条件必填 4 字段（前端无输入项） |
+| 首页上报 | ✅ | ✅ `report/` | XML 组包回执、编码辅助规则 CRUD |
+| 质量看板 | ✅ | ✅ `quality/` | — |
+| 智能与决策辅助 | ✅ | ✅ `ai-assist/` | 编码辅助 / DRG 分组规则 CRUD |
+| 基础数据 | ❌ | ❌ | 科室、医师、字典、角色、用户、架位、ICD 整版导入（**后端完备，前端未建页**） |
+
+**「仅后端 API」不是遗漏，是原型阶段的显式边界**（`SPEC.md` §2.3 明确冻结）——接口可用、可测、可调，只是没建前端页。README 不把它们说成「已实现」。
 
 ---
 
@@ -362,6 +445,7 @@ SHOT_VIDEO=1 NODE_PATH="..." node tools/shot-ccmcc.js   # 同时录屏
 
 | 想看什么 | 去哪 |
 |---|---|
+| **全部功能清单（逐条功能 + 界面入口 + 演示覆盖）** | [`docs/功能清单.md`](docs/功能清单.md) |
 | 完整功能规格、三条状态机、界面设计、验收口径 | [`SPEC.md`](SPEC.md) |
 | 骨架设计、表结构、菜单与课件对照 | [`DESIGN.md`](DESIGN.md) |
 | 95 条接口的请求/响应示例 | [`mrs-backend/docs/API.md`](mrs-backend/docs/API.md) |
@@ -370,6 +454,7 @@ SHOT_VIDEO=1 NODE_PATH="..." node tools/shot-ccmcc.js   # 同时录屏
 | 缺口、执行约定、每批落地记录 | [`docs/BACKLOG.md`](docs/BACKLOG.md) |
 | 自迭代开发循环（六拍环 / 转译铁律 / 元评审） | [`docs/自迭代开发循环-v0.1.md`](docs/自迭代开发循环-v0.1.md) |
 | 批次 1 十项能力的操作路径与截图 | [`docs/extension-guide.html`](docs/extension-guide.html) |
+| **录屏脚本（含共享的「人类化操作层」）** | [`tools/shot-lib.js`](tools/shot-lib.js) · [`tools/shot-tour.js`](tools/shot-tour.js) |
 
 ---
 

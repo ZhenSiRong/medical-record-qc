@@ -46,5 +46,9 @@ __pycache__/
 docs/screenshots/.frames/
 docs/screenshots/video-stills/
 .tmp-pil/
+# 抽帧/抽检的中间产物可能出现在任意子目录（各域录屏目录），一并排除
+**/.frames/
+**/.probe/
+**/.video/
 # 打包分发产物（内容可由仓库重建，不入库）
 病案管理系统-打包.zip

@@ -26,14 +26,51 @@ COLORS = 128
 SAMPLE_EVERY = 3      # 采样建调色板的步长
 MAX_SAMPLE = 24       # 最多用多少帧建调色板（多了收益递减）
 DURATION_MS = 500     # 2 fps → 每帧 500ms
-OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "docs", "screenshots", "demo.gif")
+DEFAULT_OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "docs", "screenshots", "demo.gif")
+# 开头白帧判定阈值：平均亮度高于此值视为「空白起幅帧」
+BRIGHT_SKIP = 240
+
+
+def _is_blank(path) -> bool:
+    """判断该帧是否为纯白起幅帧（Playwright 录屏开头会有几帧空白）。
+
+    这不是洁癖：README 首屏就是动图第一帧，开场若是一张白图，
+    观众点进来看到的第一眼就是「什么都没有」。
+    """
+    try:
+        im = Image.open(path).convert("L")
+        w, h = im.size
+        # 只采样像素（缩小到 1/16 面积即可判定亮度，够快）
+        im = im.resize((max(1, w // 16), max(1, h // 16)))
+        total = 0
+        count = 0
+        for v in im.get_flattened_data() if hasattr(im, "get_flattened_data") else im.getdata():
+            total += v
+            count += 1
+        return count > 0 and (total / count) > BRIGHT_SKIP
+    except Exception as e:  # 判定失败就不丢帧，宁可留白也不误删
+        print("BLANK_CHECK_FAILED %s %s" % (path, e))
+        return False
 
 
 def main() -> int:
     frames_dir = sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.getcwd(), ".tmp-frames")
+    # 第二个参数可指定输出路径（相对仓库根或绝对路径）—— 多段演示各自出图时用得上
+    out_arg = sys.argv[2] if len(sys.argv) > 2 else DEFAULT_OUT
     paths = sorted(glob.glob(os.path.join(frames_dir, "frame_*.png")))
     if not paths:
         print("NO_FRAMES in " + frames_dir)
+        return 1
+
+    # 0) 丢掉开头的空白起幅帧（见 _is_blank 注释）
+    dropped = 0
+    while paths and _is_blank(paths[0]):
+        paths.pop(0)
+        dropped += 1
+    if dropped:
+        print("SKIP_BLANK_HEAD %d frames" % dropped)
+    if not paths:
+        print("ALL_FRAMES_BLANK")
         return 1
 
     # 1) 采样建全局调色板
@@ -49,7 +86,7 @@ def main() -> int:
         im = Image.open(p).convert("RGB")
         frames.append(im.quantize(palette=palette, dither=Image.Dither.NONE))
 
-    out = os.path.abspath(OUT)
+    out = os.path.abspath(out_arg)
     frames[0].save(
         out,
         save_all=True,
