@@ -10,28 +10,35 @@
 
 ## 演示
 
-> 下面这段动图取自 **26.8 秒实机录屏**的第 8–27 秒（Playwright 驱动本机 Chrome、3 fps 抽帧，无模拟数据、无截图拼接）：编目 → 选病案 → 质控工作台 → CC/MCC 严重度预览 → 填报其他诊断 → 保存重判 → 跑质控 → 回看两条 WARN。
+> 下面这段动图取自 **48.5 秒实机录屏**（Playwright 驱动本机 Chrome、2 fps 抽帧，无模拟数据、无截图拼接）：编目 → 选病案 → 质控工作台 → CC/MCC 严重度预览 → 填报其他诊断 → 保存重判 → 跑质控 → 回看两条 WARN。
+>
+> 画面里带**人工化操作标注**：橙色鼠标光标、点击涟漪、被点元素高亮，以及顶部「步骤 N/9」进度条。它们由录屏脚本**注入页面**，**不是产品 UI** —— 目的是让观众不用倒带也能看清操作顺序。
 >
 > GitHub 不支持在 README 内嵌视频；且 GitHub 原生相对路径会走 `raw.githubusercontent.com`，国内网络常加载失败，因此图片统一走 **jsDelivr CDN**，并在每张图下给出仓库内原图兜底链接。
 
-<img src="https://gcore.jsdelivr.net/gh/ZhenSiRong/medical-record-qc@main/docs/screenshots/demo.gif" width="760" alt="病案编目 → CC/MCC 严重度预览 → 两条 WARN 质控项 的完整操作动图">
+<img src="https://gcore.jsdelivr.net/gh/ZhenSiRong/medical-record-qc@main/docs/screenshots/demo.gif" width="660" alt="病案编目 → CC/MCC 严重度预览 → 两条 WARN 质控项 的完整操作动图">
 
-[打开 GIF 原图](docs/screenshots/demo.gif) · [下载 / 全屏播放完整录屏（WEBM，26.8 秒，3.7 MB）](https://gcore.jsdelivr.net/gh/ZhenSiRong/medical-record-qc@main/docs/screenshots/ccmcc-demo-20261027.webm) · [录屏驱动脚本](tools/shot-ccmcc.js)
+[打开 GIF 原图](docs/screenshots/demo.gif) · [下载 / 全屏播放完整录屏（WEBM，48.5 秒，5.9 MB）](https://gcore.jsdelivr.net/gh/ZhenSiRong/medical-record-qc@main/docs/screenshots/ccmcc-demo-20261106.webm) · [录屏驱动脚本](tools/shot-ccmcc.js)
 
-### 演示动线：8 步，每步都有可验证的断言
+> **光标是怎么进画面的**：Playwright 录屏默认**不录系统指针**（headless 下根本没有指针），所以脚本往页面里注入了一个跟随真实 `mousemove` 的虚拟光标；同理 `mouse.move(..., {steps})` 走完只要几毫秒、25fps 只会拍到「瞬移」，因此鼠标轨迹是脚本自己**分步插值 + 逐步延时**画出来的。两处都是「让录屏可读」的技术处理，与产品功能无关。
+
+### 演示动线：9 步，每步都有可验证的断言
+
+> 下表编号与录屏顶部「步骤 N/9」进度条**一一对应**，可以对着进度条看视频。
 
 | 步 | 操作 | 系统行为 | 实测结果 |
 |---|---|---|---|
-| 1 | `admin / admin123` 登录 | JWT 签发、按角色装配菜单 | 工作台显示 **87 份**在院病案、归档完成率 **81.6%**、编目完成率 **74.7%** |
+| 1 | 打开系统并登录（`admin / admin123`） | JWT 签发、按角色装配菜单 | 工作台显示 **87 份**在院病案、归档完成率 **81.6%**、编目完成率 **74.7%** |
 | 2 | 侧栏「病案编目」 | 拉待编目队列 + ICD 字典 | 队列 **16 份**，ICD-10 / ICD-9-CM-3 检索可用 |
-| 3 | 选第一份病案 `BAZ0200009` | 首页快照载入编目工作台 | 患者蒋淑桂 · 心血管内科 · 主诊断 **I61.901**（脑出血）· 费用 102,523.69 元 |
+| 3 | 选中第一份病案 `BAZ0200009` | 首页快照载入编目工作台 | 患者蒋淑桂 · 心血管内科 · 主诊断 **I61.901**（脑出血）· 费用 102,523.69 元 |
 | 4 | 点「质控工作台」 | 聚合首页 + 质控结果 + 处理按钮 | **90 分 / 甲级 / 错误 0 / 警报 2 / `QC_PASSED`** |
 | 5 | 点「CC/MCC 严重度预览」 | `POST /api/ccmcc-preview`，库优先读规则、读不到降级演示表 | 本例总分层 **MCC**；`I50.900 → MCC（命中前缀 I50）`、`K80.201 → 无`；`version=demo-2026.10`、`demoOnly=true`、`disclaimer` 非空 |
-| 6 | 其他诊断填 `I50.900,K80.201`、标记填 `0,C` → 「保存并重新判读」 | PUT 首页 → **GET 刷新快照** → 重新判读 | 编码与标记**按逗号位置一一对应**，弹窗回填 `0,C`（不是保存前的旧值） |
-| 7 | `POST /api/front-pages/9/qc` | 规则驱动质控、按 `(recordId, ruleId, fieldName)` 增量 upsert | 落库 **2 条 WARN**，`results` 非空 |
-| 8 | 回看质控工作台 | 两条 WARN 各自独立成行 | `ruleId=15` 低靠 / `ruleId=16` 高靠；**评分仍 90 甲级、错误 0、状态仍 `QC_PASSED`** |
+| 6 | 其他诊断填 `I50.900,K80.201`、标记填 `0,C` | 编码与标记**按逗号位置一一对应** | 视频里逐字输入，不是整段赋值 |
+| 7 | 点「保存并重新判读」 | PUT 首页 → **GET 刷新快照** → 重新判读 | 弹窗回填 `0,C`（不是保存前的旧值） |
+| 8 | `POST /api/front-pages/9/qc` | 规则驱动质控、按 `(recordId, ruleId, fieldName)` 增量 upsert | 落库 **2 条 WARN**，`results` 非空 |
+| 9 | 回看质控工作台 | 两条 WARN 各自独立成行 | `ruleId=15` 低靠 / `ruleId=16` 高靠；**评分仍 90 甲级、错误 0、状态仍 `QC_PASSED`** |
 
-> 第 8 步是整段演示的落点：**预警出现，但病案没有被判为退回**——这正是「WARN 提示核对、不拦截」的设计意图，而不是漏判。
+> 第 9 步是整段演示的落点：**预警出现，但病案没有被判为退回**——这正是「WARN 提示核对、不拦截」的设计意图，而不是漏判。
 
 ### 关键画面
 
@@ -279,6 +286,8 @@ SHOT_VIDEO=1 NODE_PATH="..." node tools/shot-ccmcc.js   # 同时录屏
 
 脚本内置三个**程序化断言**，不靠肉眼看图判绿：`CCMCC_RENDERED`（判读结果真的渲染出来，而不是静默落到「暂无判读结果」）、`SNAPSHOT_REFRESHED`（两轮保存负控制：`M,M` → `0,C`，证明保存后刷新了本地快照）、`QC_CCMCC_HITS`（低靠 + 高靠两条都落库）。产物落到 `docs/screenshots/`。
 
+录屏那一轮额外注入三层**可读性标注**（虚拟光标 / 点击涟漪 + 被点元素高亮 / 顶部 9 步进度条），注入方式用 `context.addInitScript` —— 若改成 `goto` 之后再挂标注，录屏开头会留一段约 2 秒「页面已显示、标注还没挂上」的裸画面，首帧就丢了步骤条。
+
 > 工程纪律：守卫测试必做**负控制**（注入错误 → 必须变红且精确指位 → 逐字节还原 + sha256 佐证）；`go test` 一律 `-count=1`；改文案必须同步改**硬编码**的测试期望串（否则失去「捕获文案意外变化」的能力）。
 
 ---
@@ -317,7 +326,8 @@ SHOT_VIDEO=1 NODE_PATH="..." node tools/shot-ccmcc.js   # 同时录屏
 │   ├── BACKLOG.md                缺口清单与执行约定
 │   └── 自迭代开发循环-v0.1.md    协作模式（六拍环 / 三条不变量 / 转译铁律）
 ├── prototype/                   原型与视觉对标参考图
-└── tools/shot-ccmcc.js          端到端截图 / 录屏脚本
+├── tools/shot-ccmcc.js          端到端截图 / 录屏脚本（带光标与步骤条标注）
+└── tools/make-gif.py            录屏帧 → README 演示动图（统一调色板合成）
 ```
 
 ---
