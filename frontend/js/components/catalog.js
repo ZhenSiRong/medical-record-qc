@@ -182,6 +182,73 @@
         return n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       }
 
+      /* ---- ADR-0002 批次 D：CC/MCC 严重度分层预览（disclaimer 是响应契约，不是注释）---- */
+      var ccmccOpen = ref(false), ccmccLoading = ref(false), ccmccJudgement = ref(null);
+      var ccmccError = ref(''), ccmccEditCodes = ref(''), ccmccEditFlags = ref('');
+      var CCMCC_HINT = '严重度分层基于院内演示判读表（Source=demo，非国家医保局官方表），仅供编码质控参考，不作为医保结算或 DRG/DIP 分组依据。';
+      /* 当前病案首页：质控工作台把完整首页放在 qcData.frontPage（与 rectify.js 的 fixFp 同源）。 */
+      function ccmccFrontPage() {
+        return (qcData.value && qcData.value.frontPage) ? qcData.value.frontPage : null;
+      }
+      function ccmccRecordId() {
+        var fp = ccmccFrontPage();
+        return (fp && (fp.recordId || fp.id)) || (qcTarget.value ? qcTarget.value.recordId : null);
+      }
+      function runCcmcc() {
+        var fp = ccmccFrontPage();
+        ccmccOpen.value = true;
+        /* 与质控工作台互斥：两个 mr-modal 同层（同一 z-index），同时打开会按 DOM 顺序叠成一团，
+           后渲染的那个压在上面。入口本身在质控工作台里，故打开预览时收起工作台（qcData 仍保留，
+           预览所需的首页快照不丢），关掉预览即回到编目页。 */
+        qcOpen.value = false;
+        ccmccLoading.value = true;
+        ccmccError.value = '';
+        ccmccJudgement.value = null;
+        ccmccEditCodes.value = fp ? (fp.otherDiagnosisCodes || '') : '';
+        ccmccEditFlags.value = fp ? (fp.otherDiagnosisFlags || '') : '';
+        /* 两种入参形态：优先 recordId（走库）；编目阶段首页尚未落库时退化为直接传编码串判读。 */
+        E.call(E.ccmccPreview({
+          recordId: ccmccRecordId(),
+          mainDiagnosisCode: fp ? (fp.mainDiagnosisCode || '') : '',
+          otherDiagnosisCodes: ccmccEditCodes.value,
+          otherDiagnosisFlags: ccmccEditFlags.value
+        })).then(function (r) {
+          /* api-store.js 的 req() 已经 return json.data（第 51 行），E.call 又原样透传，
+             故这里的 r **就是** service.CcMccJudgement 本体，再取一层 r.data 必然是
+             undefined —— 弹窗会静默落到「暂无判读结果」，而控制台一个错都不报。
+             2026-10-27 实测踩中，形如 @@ CC_MCC_PREVIEW_UNWRAP @@ 的层级偏移别再犯。 */
+          ccmccJudgement.value = (r && typeof r === 'object') ? r : null;
+        }).catch(function (e) {
+          ccmccJudgement.value = null;
+          ccmccError.value = (e && e.message) ? e.message : '严重度预览失败';
+        }).then(function () { ccmccLoading.value = false; });
+      }
+      function saveCcmccOtherDiag() {
+        var rid = ccmccRecordId();
+        if (!rid) { ccmccError.value = '缺少病案标识，无法保存'; return; }
+        ccmccError.value = '';
+        /* 载荷沿用 rectify.js 的「完整快照 + 补丁」姿势：后端按全量白名单赋值，
+           补丁外的字段原样回传，不会被写成零值（与 D3 那次数据丢失同源的风险，务必保持）。 */
+        E.saveFrontPage(rid, ccmccFrontPage() || {}, {
+          otherDiagnosisCodes: ccmccEditCodes.value,
+          otherDiagnosisFlags: ccmccEditFlags.value
+        }).then(function () {
+          /* 保存后必须把本地首页快照重拉一遍再判读。
+             qcData.frontPage 是**打开工作台那一刻**的快照，不刷新就 reuse 旧值：
+             判读请求会带着旧的标记串去算、编辑框也回填旧值 —— 症状是「保存成功但
+             界面毫无变化」，与保存失败长得一模一样（2026-10-27 截图实测踩中：
+             库里已是 0,C，弹窗仍显示 C,0，于是误判成"保存没生效"）。
+             刷新失败不阻断后续判读：判读本身从库里取，接口侧仍能拿到新值。 */
+          return E.getFrontPage(rid).then(function (res) {
+            if (res && res.frontPage && qcData.value) qcData.value.frontPage = res.frontPage;
+          }).catch(function () { /* 静默降级，见上 */ });
+        }).then(function () {
+          runCcmcc();
+        }).catch(function (e) {
+          ccmccError.value = (e && e.message) ? e.message : '保存失败';
+        });
+      }
+
       function runDrg() {
         if (!form.icdCode) { A.toast('请先填写主要诊断编码，再做 DRG 预检', 'err'); return; }
         drgLoading.value = true;
@@ -295,6 +362,10 @@
         suggestTarget: suggestTarget, suggestLoading: suggestLoading, suggestList: suggestList,
         runDrg: runDrg, drgOpen: drgOpen, drgLoading: drgLoading, drgResult: drgResult,
         drgFallback: drgFallback,
+        // ADR-0002 批次 D：CC/MCC 严重度分层预览 + 其他诊断填报
+        ccmccOpen: ccmccOpen, ccmccLoading: ccmccLoading, ccmccJudgement: ccmccJudgement,
+        ccmccError: ccmccError, ccmccEditCodes: ccmccEditCodes, ccmccEditFlags: ccmccEditFlags,
+        CCMCC_HINT: CCMCC_HINT, runCcmcc: runCcmcc, saveCcmccOtherDiag: saveCcmccOtherDiag,
         fmtCost: fmtCost,
         lastResult: lastResult,
         openQc: openQc, loadQc: loadQc, qcOpen: qcOpen, qcLoading: qcLoading,
@@ -590,6 +661,54 @@
       '    </template>',
       '  </mr-modal>',
 
+      /* ---------------- ADR-0002 批次 D：CC/MCC 严重度分层预览 ---------------- */
+      '  <mr-modal v-if="ccmccOpen" title="CC/MCC 严重度分层预览" :sub="\'演示口径 · 非官方判定\'" :wide="true" @close="ccmccOpen = false">',
+      '    <div class="alert info"><span class="ai">i</span><span>{{ CCMCC_HINT }}</span></div>',
+      '    <div v-if="ccmccLoading" class="muted small">正在判读…</div>',
+      '    <template v-else-if="ccmccJudgement">',
+      '      <div class="flex items-center gap-8 mt-8">',
+      '        <span class="badge" :class="ccmccJudgement.overallSeverity === \'MCC\' ? \'red\' : (ccmccJudgement.overallSeverity === \'CC\' ? \'orange\' : \'\')">',
+      '          本例总分层：{{ ccmccJudgement.overallSeverity === \'0\' ? \'无\' : ccmccJudgement.overallSeverity }}',
+      '        </span>',
+      '        <span class="muted small">MCC {{ ccmccJudgement.mccCount }} 项 · CC {{ ccmccJudgement.ccCount }} 项 · 规则版本 {{ ccmccJudgement.version }}</span>',
+      '      </div>',
+      '      <div class="divider"></div>',
+      '      <div style="font-size:13px;font-weight:600;margin-bottom:8px">其他诊断判读明细（{{ (ccmccJudgement.items || []).length }}）</div>',
+      '      <div v-if="!(ccmccJudgement.items || []).length" class="alert ok"><span class="ai"><i class="ri-checkbox-circle-line"></i></span>',
+      '        <span>本例未录入其他诊断。</span></div>',
+      '      <div v-else>',
+      '        <div v-for="(it, i) in ccmccJudgement.items" :key="i"',
+      '             style="border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px">',
+      '          <div class="flex items-center gap-8">',
+      '            <span class="mono small">{{ it.code || \'—\' }}</span>',
+      '            <span class="badge" :class="it.severity === \'MCC\' ? \'red\' : (it.severity === \'CC\' ? \'orange\' : \'\')">{{ it.severity === \'0\' ? \'无\' : it.severity }}</span>',
+      '            <span class="muted small">命中前缀：{{ it.matchedPrefix || \'—\' }}</span>',
+      '            <span class="badge ml-auto">{{ it.source || \'—\' }}</span>',
+      '          </div>',
+      '          <div v-if="it.excluded" class="muted small mt-8">排除原因：{{ it.excludeReason }}</div>',
+      '          <div v-if="it.remark" class="muted small">{{ it.remark }}</div>',
+      '        </div>',
+      '      </div>',
+      /* 合规红线（ADR §6）：演示数据的显著标注不可省略，文案取自后端 disclaimer，前端不自造 */
+      '      <div class="alert err mt-8"><span class="ai">!</span><span>{{ ccmccJudgement.disclaimer }}</span></div>',
+      '      <div class="divider"></div>',
+      '      <div style="font-size:13px;font-weight:600;margin-bottom:8px">其他诊断填报（编码与标记按位置一一对应）</div>',
+      '      <div class="flex gap-8" style="align-items:flex-end">',
+      '        <label style="flex:2"><span class="muted small">编码（逗号分隔）</span>',
+      '          <input class="input" v-model="ccmccEditCodes" placeholder="I50.900,K80.201" /></label>',
+      '        <label style="flex:2"><span class="muted small">标记（0 无 / C CC / M MCC）</span>',
+      '          <input class="input" v-model="ccmccEditFlags" placeholder="M,0" /></label>',
+      '        <button class="btn btn-default" @click="saveCcmccOtherDiag"><i class="ri-save-line"></i> 保存并重新判读</button>',
+      '      </div>',
+      '    </template>',
+      '    <div v-else-if="ccmccError" class="alert err"><span class="ai">!</span><span>{{ ccmccError }}</span></div>',
+      '    <div v-else class="muted small">暂无判读结果。</div>',
+      '    <template #foot>',
+      '      <button class="btn btn-default" @click="runCcmcc">重新判读</button>',
+      '      <button class="btn btn-default" @click="ccmccOpen = false">关闭</button>',
+      '    </template>',
+      '  </mr-modal>',
+
       /* ---------------- 质控工作台（任务5） ---------------- */
       '  <mr-modal v-if="qcOpen" title="质控工作台" :sub="qcTarget ? qcTarget.mrNo : \'\'" :wide="true" @close="qcOpen = false">',
       '    <div v-if="qcLoading" class="muted small">正在加载质控数据…</div>',
@@ -641,6 +760,7 @@
       '    </template>',
       '    <template #foot>',
       '      <button class="btn btn-default" @click="loadQc">刷新</button>',
+      '      <button class="btn btn-default" @click="runCcmcc"><i class="ri-pulse-line"></i> CC/MCC 严重度预览</button>',
       '      <button class="btn btn-default" @click="qcOpen = false">关闭</button>',
       '    </template>',
       '  </mr-modal>',

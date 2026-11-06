@@ -105,4 +105,8 @@ func Register(r *gin.Engine, db *gorm.DB, ca *cache.Cache, cfg *config.Config) {
 	// 路 2 · 智能化与统计扩展：智能预编码推荐、DRG/DIP 预检、上报一致性核对、
 	//        归档及时率与超期催缴、上报 CSV 导出（符合国家接口标准骨架字段）
 	handler.RegisterBranchExt(auth, admin, db)
+
+	// ADR-0002 批次 D：CC/MCC 严重度判读出口（响应体必带 disclaimer —— ADR §4 强约束，非注释）
+	ccH := handler.NewCcMccHandler(db)
+	auth.POST("/ccmcc-preview", ccH.Preview)
 }

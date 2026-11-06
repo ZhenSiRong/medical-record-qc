@@ -40,11 +40,12 @@ var deptUserTargets = []struct {
 // SeedDeptUserDemoData 让「科室医师」账号（deptuser / 陈志远）在演示数据里有足够可测的病案。
 //
 // 背景（实测发现的问题）：
-//   seed.go 的病案医师姓名是从一个 12 人的硬编码 doctorNames 池里随机取的
-//   （seed.go:272 `doctorNames[rng.Intn(len(doctorNames))]`），而 sys_user 里的
-//   deptuser（陈志远，心血管内科）**不在那个池子里**，且 seed.go 也从不给病案指派
-//   「医师 = 陈志远」。因此 deptuser 登录后，任何"按医师归属"的视图都是空的，
-//   无法用该账号做任何演示或测试。
+//
+//	seed.go 的病案医师姓名是从一个 12 人的硬编码 doctorNames 池里随机取的
+//	（seed.go:272 `doctorNames[rng.Intn(len(doctorNames))]`），而 sys_user 里的
+//	deptuser（陈志远，心血管内科）**不在那个池子里**，且 seed.go 也从不给病案指派
+//	「医师 = 陈志远」。因此 deptuser 登录后，任何"按医师归属"的视图都是空的，
+//	无法用该账号做任何演示或测试。
 //
 // 做法：
 //  1. 医师表补登记陈志远（种子池没有他）

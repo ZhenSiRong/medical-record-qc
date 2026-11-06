@@ -326,6 +326,116 @@
     }
   }
 
+  /* ============================================================
+     角色能力判据（2026-10-09，本文件归属本次改动）——前端权限的唯一投影点
+
+     【为什么是「能力表 + 语义化判据」，而不是各处写 roleCode === 'ADMIN'】
+     1) 后端是「功能角色」分权：一个角色对应一组业务能力（归档、编目、借阅审批、
+        上报、系统管理……）。页面真正关心的是「这个账号能不能做归档」，
+        角色码只是实现细节。把角色→能力的映射收进下面这一张 CAPS 表后，
+        将来后端若拆出 AUDITOR / CODER 等新角色，只改这张表，组件一行都不用动；
+        反之若在 12 个按钮里散写角色码比较，加一个角色就要全局搜一遍。
+     2) 组件里读到的必须是业务语义：`U.canArchive()` / `U.canApproveBorrow()`
+        读起来就是「能不能归档 / 能不能审批借阅」，而 `roleCode === 'ADMIN'`
+        要求读者自己把角色码翻译成业务含义——这正是本次要消除的认知负担。
+     3) 单一事实源：导航可见性（layout.js 的 NAV.roles）与页面内控件的置灰
+        都从这张表派生（capRoles() 直接把能力映射成角色数组给导航用），
+        从结构上杜绝「导航藏了但里面的按钮还能点」这类两处口径漂移。
+     4) 判据以函数形式暴露，而不是在登录时算好一份布尔快照：函数体里读
+        state.currentUser.roleCode，在组件的 computed 里自然成为响应式依赖，
+        退出/切换账号后无需任何手动刷新。
+
+     【兜底方向：fail-closed】
+     - 未登录（roleCode 为空）：一律 false，绝不放行。
+     - 白名单能力（如 archive.manage → 仅 ADMIN）：未知角色码不命中 → false。
+     - roles 为 null 的能力表示「不限角色」，对应后端只挂 auth 组的接口
+       （如 POST /borrows 借阅申请：任何已登录用户都能申请），语义同 NAV 的
+       roles 缺省=不限角色。
+     ============================================================ */
+  var ROLE_ADMIN = 'ADMIN';        // 病案室管理员（后端 sys_user.role_code）
+  var ROLE_DEPT_USER = 'DEPT_USER'; // 临床科室医师
+
+  // 能力表：能力名 → 允许的角色。roles 缺省/null = 不限角色（后端 auth 组）。
+  // hint 为「为什么这个控件是灰的」的用户可见文案，缺省为 DENY_HINT。
+  var DENY_HINT = '需病案室权限';
+  var CAPS = {
+    /* ---- 病案归档域：router.go 把 POST /records、PUT /records/:id、
+       POST /archives/recycle、POST /archives/shelve、POST /archives/seal/:id
+       全部挂在 admin 组，临床调用必 403，故整域 ADMIN ---- */
+    'record.register': { roles: [ROLE_ADMIN] },   // 病案登记
+    'record.edit': { roles: [ROLE_ADMIN] },       // 病案修改（备注/科室/医师）
+    'archive.manage': { roles: [ROLE_ADMIN] },    // 回收归档 / 批量归档 / 上架 / 封存
+    /* ---- 病案编目：POST /catalogs、DELETE /catalogs/:id 均 ADMIN only ---- */
+    'catalog.manage': { roles: [ROLE_ADMIN] },
+    /* ---- 借阅：申请与续借只挂 auth（临床合法可用）；审批/借出/归还/催还 ADMIN ---- */
+    'borrow.apply': { roles: null, hint: '需登录后使用' },  // POST /borrows（临床要申请借阅）
+    'borrow.renew': { roles: null, hint: '需登录后使用' },  // PUT /borrows/:id/renew
+    'borrow.approve': { roles: [ROLE_ADMIN] },    // PUT /borrows/:id/approve + /lend
+    'borrow.return': { roles: [ROLE_ADMIN] },     // PUT /borrows/:id/return
+    'borrow.remind': { roles: [ROLE_ADMIN] },     // POST /borrow-ledger/:id/remind
+    /* ---- 上报：POST /report-batches、/:id/submit、GET /:id/export 均 ADMIN；
+       注意 GET /:id/export-check 只挂 auth（登录可见），故导出前检查不受门控 ---- */
+    'report.manage': { roles: [ROLE_ADMIN] },     // 新建批次 / 提交上报
+    'report.export': { roles: [ROLE_ADMIN] },     // 导出 CSV（hqmsts_）
+    /* ---- 首页数据：PUT /front-pages/:recordId 与 POST .../qc 均 ADMIN ---- */
+    'frontpage.edit': { roles: [ROLE_ADMIN] },
+    /* ---- 质控闭环：退回/复核 ADMIN；提交整改临床与病案室都可（见 qc_ext.go）---- */
+    'qc.return': { roles: [ROLE_ADMIN] },
+    'qc.review': { roles: [ROLE_ADMIN] },
+    'qc.rectify': { roles: [ROLE_ADMIN, ROLE_DEPT_USER] },
+    /* ---- 系统管理：/users /roles /depts /doctors /dicts /shelves 写操作全 ADMIN ---- */
+    'system.manage': { roles: [ROLE_ADMIN] },
+    /* ---- 下面两项**不是**后端 403 边界：GET /stats/* 与 GET /archive-timeliness、
+       /archive-overdue 都对任意登录用户开放。它们 ADMIN only 是「病案室管理视角」
+       的产品口径（临床看不到入口），真的打开也只会得到只读视图、不会 403。
+       单独列出是为了让「因权限灰掉」与「因视角隐藏」在代码里可区分。 ---- */
+    'stats.view': { roles: [ROLE_ADMIN] },
+    'quality.board': { roles: [ROLE_ADMIN] }
+  };
+
+  function currentRole() {
+    return (state.currentUser && state.currentUser.roleCode) || '';
+  }
+  // 原始判据：当前账号是否病案室管理员。仅建议在能力表内部/极少数场合使用。
+  function isAdmin() { return currentRole() === ROLE_ADMIN; }
+  // 通用判据：can('borrow.approve')。能力名写错（不在表中）一律 false，不抛异常。
+  function can(cap) {
+    var c = CAPS[cap];
+    if (!c) return false;
+    var rc = currentRole();
+    if (!rc) return false;          // 未登录：fail-closed
+    if (!c.roles) return true;      // 不限角色（后端 auth 组）
+    return c.roles.indexOf(rc) > -1; // 白名单：未知角色不命中（fail-closed）
+  }
+  // 该能力允许的角色数组；null = 不限角色。返回值可直接赋给导航项的 roles 字段
+  // （NAV 的 roles 语义相同：缺省/null 表示不限角色）。
+  function capRoles(cap) {
+    var c = CAPS[cap];
+    if (!c || !c.roles) return null;
+    return c.roles.slice();
+  }
+  // 控件置灰时的提示文案（title/tooltip 用）
+  function denyHint(cap) {
+    var c = CAPS[cap];
+    return (c && c.hint) || DENY_HINT;
+  }
+
+  /* 语义化便捷判据：组件里请优先用这些，不要在组件里比较角色码。
+     每个都是 can() 的一行委托——口径只有 CAPS 一处，改表即全站生效。 */
+  function canRegisterRecord() { return can('record.register'); }
+  function canEditRecord() { return can('record.edit'); }
+  function canArchive() { return can('archive.manage'); }
+  function canCatalog() { return can('catalog.manage'); }
+  function canApplyBorrow() { return can('borrow.apply'); }
+  function canRenewBorrow() { return can('borrow.renew'); }
+  function canApproveBorrow() { return can('borrow.approve'); }
+  function canReturnBorrow() { return can('borrow.return'); }
+  function canManageReport() { return can('report.manage'); }
+  function canExportReport() { return can('report.export'); }
+  function canEditFrontPage() { return can('frontpage.edit'); }
+  function canReviewQc() { return can('qc.review'); }
+  function canRectifyQc() { return can('qc.rectify'); }
+
   // 顺带修复（2026-10-09，本文件归属本次改动）：本文件内部多处以 `toast(...)` 裸调用提示，
   // 但作用域内并没有名为 toast 的函数（只有 actions.toast），因此这些调用运行到就抛
   // `ReferenceError: toast is not defined`——症状是「接口调用成功、成功提示不显示」，
@@ -353,6 +463,12 @@
   var FP_TEXT = [
     'patientName', 'gender', 'hospitalNo', 'deptName', 'doctorName',
     'admitDiagnosis', 'dischargeDiagnosis', 'mainDiagnosisCode', 'otherDiagnosisCodes',
+    // otherDiagnosisFlags 与 otherDiagnosisCodes 等长、按逗号位置一一对齐：第 i 位是第 i 个
+    // 其他诊断的严重度标记（0=无 / C=CC / M=MCC，ADR-0002 §5）。它同样是后端 PUT 白名单里的
+    // string 列（frontpage.go 的 "other_diagnosis_flags"），必须随 GET 快照全量回传；若漏传，
+    // 后端「全量赋值」会把它写成 ''（Go string 零值），把已存储的其他诊断严重度标记静默清空
+    // —— 与缺口 D3（externalCauseCode 等被清空）同类数据丢失。
+    'otherDiagnosisFlags',
     'mainOperationCode', 'otherOperationCodes', 'extJson',
     'externalCauseCode', 'externalCauseName'
   ];
@@ -791,6 +907,27 @@
 
   var util = {
     today: today, fmt: fmt, addDays: addDays, diffDays: diffDays,
+    /* ---- 角色能力判据（唯一投影点，设计理由见上方「角色能力判据」注释块）----
+       组件里请优先用语义化判据（canArchive / canApproveBorrow…），
+       需要新能力时在 CAPS 表加一行，而不是在组件里比较角色码。 */
+    isAdmin: isAdmin,              // 原始判据：是否病案室管理员
+    can: can,                      // 通用判据：can('borrow.approve')
+    capRoles: capRoles,            // 能力 → 角色数组（null=不限），供 NAV 派生
+    denyHint: denyHint,            // 置灰提示文案
+    capabilities: CAPS,            // 能力表只读视图（便于排查/自测）
+    canRegisterRecord: canRegisterRecord,
+    canEditRecord: canEditRecord,
+    canArchive: canArchive,
+    canCatalog: canCatalog,
+    canApplyBorrow: canApplyBorrow,
+    canRenewBorrow: canRenewBorrow,
+    canApproveBorrow: canApproveBorrow,
+    canReturnBorrow: canReturnBorrow,
+    canManageReport: canManageReport,
+    canExportReport: canExportReport,
+    canEditFrontPage: canEditFrontPage,
+    canReviewQc: canReviewQc,
+    canRectifyQc: canRectifyQc,
     // 三态整数解析（'' / null / 非数字 → null，其余 → 整数）：
     // 新生儿出生体重/孕周等「可空且 0 视为空」的字段在前端统一用它归一，避免 0 占位。
     intOrNull: intOrNull,
@@ -854,6 +991,10 @@
     /* ---- 任务 7：DRG/DIP 预分组（查表版）---- */
     drgPreview: function (payload) {
       return req('POST', '/drg-preview', payload);
+    },
+    /* ---- ADR-0002 批次 D：CC/MCC 严重度判读（响应体必带 disclaimer —— ADR §4 强约束）---- */
+    ccmccPreview: function (payload) {
+      return req('POST', '/ccmcc-preview', payload);
     },
     drgRulesPage: function (params) {
       var qs = Object.keys(params || {}).map(function (k) { return k + '=' + encodeURIComponent(params[k]); }).join('&');

@@ -30,6 +30,20 @@ func RunQc(db *gorm.DB, fp *model.MedFrontPage) ([]model.QcResult, *model.FrontP
 		return nil, nil, err
 	}
 
+	// ADR-0002 批次 C：CC/MCC 判读规则集。落表后优先读库（规则即数据，换表不改代码）；
+	// 读不到或库中没有该版本数据时降级到内置演示表（fail-soft，保证预警不断供）。
+	// 演示规则一律 Source=demo，提示文案自带「演示口径」标注，界面另有 disclaimer 兜底（ADR §6）。
+	ccmccRules := CcMccDemoRules
+	if loaded, err := LoadCcMccRules(db, CcMccDemoVersion); err == nil && len(loaded) > 0 {
+		ccmccRules = loaded
+	} else if err != nil {
+		log.Printf("[qc] cc_mcc_rule 读取失败，本次判读降级使用内置演示表: %v", err)
+	} else {
+		// err==nil 但查不到数据 = 种子没跑 / 版本对不上 / 表是空的。静默降级会让
+		// 「库里有表却没数据」这类配置错误长期隐身，故显式留痕（施工单元 A1 提出）。
+		log.Printf("[qc] cc_mcc_rule 在版本 %s 下无规则数据，本次判读降级使用内置演示表", CcMccDemoVersion)
+	}
+
 	v := reflect.ValueOf(*fp)
 	var results []model.QcResult
 	errCount := 0
@@ -42,12 +56,20 @@ func RunQc(db *gorm.DB, fp *model.MedFrontPage) ([]model.QcResult, *model.FrontP
 		}
 
 		// 任务6 扩展规则类型：不依赖单一字段反射，直接以整份首页数据判定。
-		if rule.RuleType == model.QcDiagOpMatch || rule.RuleType == model.QcMainDiagRule {
-			msg := ""
-			if rule.RuleType == model.QcDiagOpMatch {
+		// ADR-0002 批次 C：低靠(CC_MCC_LOW) / 高靠(CC_MCC_HIGH) 与既有两类共用本分支，
+		// 沿用「空串=未命中」的约定与「仅 ERROR 计 errCount」的拦截口径（批次 C 必须 WARN，不拦截）。
+		if rule.RuleType == model.QcDiagOpMatch || rule.RuleType == model.QcMainDiagRule ||
+			rule.RuleType == model.QcCcMccLow || rule.RuleType == model.QcCcMccHigh {
+			var msg string
+			switch rule.RuleType {
+			case model.QcDiagOpMatch:
 				msg = checkDiagOpMatch(fp)
-			} else {
+			case model.QcMainDiagRule:
 				msg = checkMainDiag(fp)
+			case model.QcCcMccLow:
+				msg = CheckCcMccLow(fp, ccmccRules)
+			case model.QcCcMccHigh:
+				msg = CheckCcMccHigh(fp, ccmccRules)
 			}
 			if msg == "" {
 				continue

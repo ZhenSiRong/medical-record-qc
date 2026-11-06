@@ -2,9 +2,9 @@
 
 > 本文档是前端开发的唯一接口依据，与后端代码同步维护。接口变更请同步更新本文件。
 >
-> **本轮同步（2026-10-09）**：补齐功能扩展批次 1 的 **22 条**新接口，并修正 5 处与实现不符的旧描述（见文末「变更记录」）。含 D3（首页条件必填真字段）与 D4（医生端「我的待整改」）落地后的接口变更。
-> 路由总量 **94 条**（`/api` 下 93 条 + `/healthz`），旧文档只覆盖约 46 条。
-> **核对方式（自动，可重复）**：`go test ./internal/router/ -count=1` 内含 `TestApiCoverage`，自动做「文档 ↔ 真实路由」双向比对（当前 **94/94 = 100%**）；另有 `python tools/check-api-coverage.py` 供人工复核。**必须带 `-count=1`**——本测试读取 module 之外的 `frontend/` 与文档缓存无关，但同一包的前端调用核对测试读 `frontend/`，缓存会导致假绿灯。
+> **本轮同步（2026-10-09）**：补齐功能扩展批次 1 的 **22 条**新接口，并修正 5 处与实现不符的旧描述（见文末「变更记录」）。含 D3（首页条件必填真字段）与 D4（医生端「我的待整改」）落地后的接口变更。  
+> 路由总量 **95 条**（`/api` 下 94 条 + `/healthz`），旧文档只覆盖约 46 条。  
+> **核对方式（自动，可重复）**：`go test ./internal/router/ -count=1` 内含 `TestApiCoverage`，自动做「文档 ↔ 真实路由」双向比对（当前 **95/95 = 100%**）；另有 `python tools/check-api-coverage.py` 供人工复核。**必须带 `-count=1`**——本测试读取 module 之外的 `frontend/` 与文档缓存无关，但同一包的前端调用核对测试读 `frontend/`，缓存会导致假绿灯。
 >
 > - Base URL：`http://localhost:8080`（`127.0.0.1:8080` 等价）
 > - 全部业务接口挂 `/api` 前缀；除登录与 `/healthz` 外均需请求头 `Authorization: Bearer <token>`
@@ -16,55 +16,57 @@
 
 ## 目录
 
-| 节 | 域 | 接口数 | 备注 |
-|---|---|---|---|
-| 0 | 健康检查 | 1 | `/healthz`，公开 |
-| 1 | 认证 | 2 | |
-| 2 | 病案主档 | 4 | |
-| 3 | 归档 | 4 + 架位 CRUD | |
-| 4 | 编目与编码库 | 6 | |
-| 5 | 借阅申请与审批 | 5 | |
-| 6 | 借阅台账 | 3 | |
-| 7 | 统计分析 | 5 | `/stats/export` 为 501 占位 |
-| 8 | 首页质控 | 5 | |
-| 9 | 首页上报 | 4 | |
-| 10 | 系统管理 | 32 | 6 类资源 × 5 + 日志 + 改密 |
-| 11 | **扩展：智能编码辅助**（批次 1） | 5 | |
-| 12 | **扩展：DRG/DIP 预检**（批次 1） | 5 | |
-| 13 | **扩展：质量评分与退回返修闭环**（批次 1 + D4） | 7 | 含 D4 新增的 `my-pending` |
-| 14 | **扩展：归档及时率与超期催缴**（批次 1） | 2 | |
-| 15 | **扩展：上报一致性核对**（批次 1） | 2 | |
-| 16 | **扩展：上报导出**（批次 1） | 2 | |
-| 17 | 前端集成现状 | — | 哪些接口已被 `api-store.js` 调用 |
+| 节  | 域                             | 接口数         | 备注                       |
+| -- | ----------------------------- | ----------- | ------------------------ |
+| 0  | 健康检查                          | 1           | `/healthz`，公开            |
+| 1  | 认证                            | 2           |                          |
+| 2  | 病案主档                          | 4           |                          |
+| 3  | 归档                            | 4 + 架位 CRUD |                          |
+| 4  | 编目与编码库                        | 6           |                          |
+| 5  | 借阅申请与审批                       | 5           |                          |
+| 6  | 借阅台账                          | 3           |                          |
+| 7  | 统计分析                          | 5           | `/stats/export` 为 501 占位 |
+| 8  | 首页质控                          | 5           |                          |
+| 9  | 首页上报                          | 4           |                          |
+| 10 | 系统管理                          | 32          | 6 类资源 × 5 + 日志 + 改密      |
+| 11 | **扩展：智能编码辅助**（批次 1）           | 5           |                          |
+| 12 | **扩展：DRG/DIP 预检**（批次 1）       | 5           |                          |
+| 13 | **扩展：质量评分与退回返修闭环**（批次 1 + D4） | 7           | 含 D4 新增的 `my-pending`    |
+| 14 | **扩展：归档及时率与超期催缴**（批次 1）       | 2           |                          |
+| 15 | **扩展：上报一致性核对**（批次 1）          | 2           |                          |
+| 16 | **扩展：上报导出**（批次 1）             | 2           |                          |
+| 17 | **扩展：CC/MCC 严重度判读预览**（批次 D）      | 1           | ADR-0002 §4/§6，演示口径、不出具分组码 |
+| 18 | 前端集成现状                        | —           | 哪些接口已被 `api-store.js` 调用 |
 
 ## 账号（种子数据）
 
-| 账号 | 密码 | 角色 | 能力 |
-|---|---|---|---|
-| `admin` | `admin123` | ADMIN 病案管理员 | 全部操作（归档/编目/审批/上报/系统管理） |
-| `deptuser` | `123456` | DEPT_USER 科室用户 | 查询、借阅申请、统计查看、提交整改 |
+| 账号         | 密码         | 角色             | 能力                     |
+| ---------- | ---------- | -------------- | ---------------------- |
+| `admin`    | `admin123` | ADMIN 病案管理员    | 全部操作（归档/编目/审批/上报/系统管理） |
+| `deptuser` | `123456`   | DEPT_USER 科室用户 | 查询、借阅申请、统计查看、提交整改      |
 
 ## 菜单 → 模块对照（可直接做前端路由/侧边栏）
 
-| 菜单（12 节课件对应节） | 前端页面建议 | 主要接口 |
-|---|---|---|
-| 病案归档（节 3） | 病案列表 + 批量回收/上架 + 架位管理 + 流转履历 | `/records` `/archives` `/shelves` |
-| 病案编目（节 4） | 编目工作台（选码）+ 编码库维护 + **智能推荐** | `/catalogs` `/icd-dicts` `/code-suggest` |
-| 借阅申请与审批（节 5） | 我的申请 / 待审批列表 | `/borrows` |
-| 借阅台账（节 6） | 台账 + 逾期筛选 + 催还 | `/borrow-ledger` |
-| 统计分析（节 7） | 图表看板 + **归档及时率** | `/stats/*` `/archive-timeliness` |
-| 首页质控（节 8） | 首页表单 + 异常列表 + 修正 + **质控工作台/退回返修** | `/front-pages` `/qc-results` |
-| 首页上报（节 9） | 批次列表 + 明细回执 + **导出/一致性核对** | `/report-batches` `/report-consistency` |
-| 系统管理（节 10/11/12） | 用户/角色/科室/医师/字典/日志 | `/users` `/roles` `/depts` `/doctors` `/dicts` `/oper-logs` |
-| **质量看板**（批次 1 新增整页） | 归档时效专项：及时率指标 + 月度趋势 + 科室排名 + 超期催缴清单 | `/archive-timeliness` `/archive-overdue` |
-| **我的待整改 / 整改督办**（D4 新增整页） | 临床侧：本科室待整改项 + 提交整改；病案室侧：全院督办视角（同一页面按角色切换名称） | `/qc-results/my-pending` `/qc-results/:id/rectify` |
+| 菜单（12 节课件对应节）             | 前端页面建议                                      | 主要接口                                                        |
+| ------------------------- | ------------------------------------------- | ----------------------------------------------------------- |
+| 病案归档（节 3）                 | 病案列表 + 批量回收/上架 + 架位管理 + 流转履历                | `/records` `/archives` `/shelves`                           |
+| 病案编目（节 4）                 | 编目工作台（选码）+ 编码库维护 + **智能推荐**                 | `/catalogs` `/icd-dicts` `/code-suggest`                    |
+| 借阅申请与审批（节 5）              | 我的申请 / 待审批列表                                | `/borrows`                                                  |
+| 借阅台账（节 6）                 | 台账 + 逾期筛选 + 催还                              | `/borrow-ledger`                                            |
+| 统计分析（节 7）                 | 图表看板 + **归档及时率**                            | `/stats/*` `/archive-timeliness`                            |
+| 首页质控（节 8）                 | 首页表单 + 异常列表 + 修正 + **质控工作台/退回返修**           | `/front-pages` `/qc-results`                                |
+| 首页上报（节 9）                 | 批次列表 + 明细回执 + **导出/一致性核对**                  | `/report-batches` `/report-consistency`                     |
+| 系统管理（节 10/11/12）          | 用户/角色/科室/医师/字典/日志                           | `/users` `/roles` `/depts` `/doctors` `/dicts` `/oper-logs` |
+| **质量看板**（批次 1 新增整页）       | 归档时效专项：及时率指标 + 月度趋势 + 科室排名 + 超期催缴清单         | `/archive-timeliness` `/archive-overdue`                    |
+| **我的待整改 / 整改督办**（D4 新增整页） | 临床侧：本科室待整改项 + 提交整改；病案室侧：全院督办视角（同一页面按角色切换名称） | `/qc-results/my-pending` `/qc-results/:id/rectify`          |
 
 ---
 
 ## 0. 健康检查
 
 ### GET /healthz （公开，**不在 `/api` 前缀下**）
-→ `data: { "status": "up" }`
+
+→ `data: { "status": "up" }`  
 用途：服务存活探针（部署与演示脚本用）。不受鉴权与操作日志中间件影响。
 
 ---
@@ -72,13 +74,16 @@
 ## 1. 认证
 
 ### POST /api/auth/login （公开）
+
 ```json
 { "username": "admin", "password": "admin123" }
 ```
-→ `data: { "token": "eyJ...", "user": 用户对象 }`
+
+→ `data: { "token": "eyJ...", "user": 用户对象 }`  
 账号不存在/密码错误/账号停用均返回 **401** `用户名或密码错误`。
 
 ### GET /api/auth/me
+
 → `data: 用户对象`（`password` 字段带 `json:"-"`，永不下发）
 
 **用户对象字段**：`id, username, realName, deptId, deptName, phone, roleCode, enabled, createdAt, updatedAt`
@@ -87,151 +92,184 @@
 
 ## 2. 病案主档
 
-### GET /api/records/page?keyword=&status=&deptId=&page=&size=
-`keyword` 模糊匹配 `recordNo` / `patientName` / `hospitalNo`（ILIKE）。
-`status` 取值（病案状态机，前端可做标签色）：`NOT_RECYCLED 未回收` `RECYCLED 已回收待编目` `CATALOGED 已编目` `ARCHIVED 已归档在架` `BORROWED 借出` `SEALED 封存`
+### GET /api/records/page?keyword=\&status=\&deptId=\&page=\&size=
+
+`keyword` 模糊匹配 `recordNo` / `patientName` / `hospitalNo`（ILIKE）。  
+`status` 取值（病案状态机，前端可做标签色）：`NOT_RECYCLED 未回收` `RECYCLED 已回收待编目` `CATALOGED 已编目` `ARCHIVED 已归档在架` `BORROWED 借出` `SEALED 封存`  
 → `data: { list: [病案], total }`
 
 > ⚠️ **状态投影（前端契约，2026-10-09 修正）**：`frontend/js/api-store.js` 把后端枚举投影成界面中文词，其中 **`RECYCLED` 与 `ARCHIVED` 曾经都被投影成「已归档」**，导致「待编目队列」误按「已归档」筛选、把已归档在架的病案也装了进来（它们早已编完目）。现行投影为：
 >
-> | 后端 `status` | 界面中文 |
-> |---|---|
-> | `NOT_RECYCLED` | 未归档 |
-> | **`RECYCLED`** | **待编目**（待编目队列筛的就是它） |
-> | `ARCHIVED` | 已归档（在架，可借阅） |
-> | `CATALOGED` / `BORROWED` / `SEALED` | 已编目 |
+> | 后端 `status`                         | 界面中文                |
+> | ----------------------------------- | ------------------- |
+> | `NOT_RECYCLED`                      | 未归档                 |
+> | **`RECYCLED`**                      | **待编目**（待编目队列筛的就是它） |
+> | `ARCHIVED`                          | 已归档（在架，可借阅）         |
+> | `CATALOGED` / `BORROWED` / `SEALED` | 已编目                 |
 >
 > **借阅可选集合**只应包含 `ARCHIVED`（后端 `POST /api/borrows` 要求 status=ARCHIVED，否则 409）。
 
 **病案字段**：`id, recordNo, patientName, gender, birthDate, hospitalNo, deptId, deptName, doctorName, admitTime, dischargeTime, status, shelfId, archivedAt, catalogedAt, remark, createdAt, updatedAt`
+
 > 注意：`archivedAt`（归档上架时间）与 `catalogedAt`（完成编目时间）是**归档及时率统计的口径来源**，前端做时间轴/及时率展示时需要。
 
 ### GET /api/records/:id
+
 → `data: { record: 病案, catalogs: [编目], frontPage: 首页 }`
+
 > 实现细节：无首页时 `frontPage` 返回**字段全为空的首页对象**（零值），不是 `null`。判空请用 `frontPage.recordId` 是否为 0/缺失。
 
 ### POST /api/records  （ADMIN）
-body 为病案字段子集；`recordNo` 留空自动生成（`BA` + `yyyyMMddHHmmss`）；初始状态 `NOT_RECYCLED`，忽略请求体里的 `status`。
+
+body 为病案字段子集；`recordNo` 留空自动生成（`BA` + `yyyyMMddHHmmss`）；初始状态 `NOT_RECYCLED`，忽略请求体里的 `status`。  
 → `data: 创建后的病案`
 
 ### PUT /api/records/:id  （ADMIN，部分更新）
+
 仅 `NOT_RECYCLED/RECYCLED/CATALOGED` 状态可改（`WHERE id=? AND status IN (...)`）；**409** 表示病案不存在或状态不允许。
 
 ## 3. 归档（节 3）
 
 ### POST /api/archives/recycle  （ADMIN）批量回收
+
 ```json
 { "recordIds": [1, 2, 3] }
 ```
+
 → `data: { "batchNo": "RC20261009153000" }`；仅 `NOT_RECYCLED` 生效，其余静默跳过（不报错）；命中与未命中都会写入归档流水（`archive_record`）。
 
 ### POST /api/archives/shelve  （ADMIN）批量归档上架
+
 ```json
 { "recordIds": [1,2], "shelfId": 1 }
 ```
+
 → `data: { "batchNo": "AR20261009153000" }`
+
 - 效果：`RECYCLED/CATALOGED → ARCHIVED`，写 `shelf_id` + `archived_at`，架位 `usedCount` 同步累加
 - 架位容量不足时**自动截断**到剩余容量（不报错）
 - **409**：架位不存在、架位已满
 - 并发安全：对架位行加 `FOR UPDATE` 锁
 
 ### POST /api/archives/seal/:id  （ADMIN）封存
-> 路径参数名是 **`:id`**（与实现 `router.go` 一致；早期草稿误写作 `:recordId`，现更正）。
-仅 `ARCHIVED` 可封；→ `data: null`；**409** 表示状态不允许。封存后禁止借阅、禁止改首页、禁止增删编目。
+
+> 路径参数名是 **`:id`**（与实现 `router.go` 一致；早期草稿误写作 `:recordId`，现更正）。  
+> 仅 `ARCHIVED` 可封；→ `data: null`；**409** 表示状态不允许。封存后禁止借阅、禁止改首页、禁止增删编目。
 
 ### GET /api/archives/records/:id/flow  归档流转履历
-> 路径参数名是 **`:id`**。
-→ `data: [{ id, recordId, action, batchNo, shelfId, operatorName, remark, createdAt }]`，按 `id ASC`
-`action`：`RECYCLE 回收` `ARCHIVE 上架` `SEAL 封存`
+
+> 路径参数名是 **`:id`**。  
+> → `data: [{ id, recordId, action, batchNo, shelfId, operatorName, remark, createdAt }]`，按 `id ASC`  
+> `action`：`RECYCLE 回收` `ARCHIVE 上架` `SEAL 封存`
 
 ### 架位 CRUD（通用，见 §10 通用 CRUD 语义）
-`GET /api/shelves/page?keyword=`、`GET /api/shelves/:id`、`POST /api/shelves`、`PUT /api/shelves/:id`、`DELETE /api/shelves/:id`（写操作 ADMIN）
+
+`GET /api/shelves/page?keyword=`、`GET /api/shelves/:id`、`POST /api/shelves`、`PUT /api/shelves/:id`、`DELETE /api/shelves/:id`（写操作 ADMIN）  
 字段：`shelfCode, room, locationDesc, capacity, usedCount`
 
 ## 4. 编目（节 4）
 
 ### GET /api/catalogs?recordId=1
-> 无分页，返回数组。`recordId` 必传，否则返回空数组。
-→ `data: [{ id, recordId, catalogType, icdCode, icdName, isMain, sortOrder, coderName, createdAt, updatedAt }]`
-`catalogType`：`DIAGNOSIS` / `OPERATION`；排序 `catalog_type, sort_order, id`
+
+> 无分页，返回数组。`recordId` 必传，否则返回空数组。  
+> → `data: [{ id, recordId, catalogType, icdCode, icdName, isMain, sortOrder, coderName, createdAt, updatedAt }]`  
+> `catalogType`：`DIAGNOSIS` / `OPERATION`；排序 `catalog_type, sort_order, id`
 
 ### POST /api/catalogs  （ADMIN）新增编目
+
 ```json
 { "recordId": 2, "catalogType": "DIAGNOSIS", "icdCode": "K35.900", "icdName": "急性阑尾炎", "isMain": true }
 ```
+
 - `coderName` 由后端取当前登录用户名覆盖，前端不用传
 - 编码必须在 `icd_dict` 存在（否则 **409** `ICD 编码在字典中不存在…`）
 - 首条编目把 `RECYCLED → CATALOGED` 并写 `catalogedAt`（条件更新，天然幂等）
-- **409 归档锁定**：病案已 `ARCHIVED/BORROWED/SEALED` 时禁止再编目（批次 1 新增，依据《电子病历应用管理规范（试行）》）
-→ `data: 创建后的编目对象`
+- **409 归档锁定**：病案已 `ARCHIVED/BORROWED/SEALED` 时禁止再编目（批次 1 新增，依据《电子病历应用管理规范（试行）》）  
+  → `data: 创建后的编目对象`
 
 ### DELETE /api/catalogs/:id  （ADMIN）
+
 → `data: null`；**404** 编目不存在；**409** 所属病案已归档锁定。
 
-### GET /api/icd-dicts/search?type=ICD10&keyword=肺
-编码检索（前端选码下拉框/远程搜索）。`type` 默认 `ICD10`，可 `ICD9CM3`。
+### GET /api/icd-dicts/search?type=ICD10\&keyword=肺
+
+编码检索（前端选码下拉框/远程搜索）。`type` 默认 `ICD10`，可 `ICD9CM3`。  
 → `data: [{ code, name }]`（最多 20 条，Redis 缓存 10 分钟）
 
-### GET /api/icd-dicts/page?type=&keyword=&page=&size=
-> 只返回 `enabled = true` 的编码。
-→ `data: { list: [icd_dict 对象], total }`，字段 `id, dictType, code, name, versionId, enabled, createdAt, updatedAt`
+### GET /api/icd-dicts/page?type=\&keyword=\&page=\&size=
+
+> 只返回 `enabled = true` 的编码。  
+> → `data: { list: [icd_dict 对象], total }`，字段 `id, dictType, code, name, versionId, enabled, createdAt, updatedAt`
 
 ### POST /api/icd-dicts/import  （ADMIN）编码库整版导入
+
 ```json
 { "dictType": "ICD10", "version": "ICD-10-2025", "entries": [{ "code": "A00.000", "name": "霍乱" }] }
 ```
-→ `data: { "count": 1, "version": "ICD-10-2025" }`
-导入会把同类型旧版本置为 `HISTORY`（不物理删除，保编目可追溯）。
+
+→ `data: { "count": 1, "version": "ICD-10-2025" }`  
+导入会把同类型旧版本置为 `HISTORY`（不物理删除，保编目可追溯）。  
 （TODO 官方码表格式确认后改为文件上传）
 
 ## 5. 借阅申请与审批（节 5）
 
 ### POST /api/borrows  （任意登录用户）
+
 ```json
 { "recordId": 3, "reason": "临床诊疗", "dueTime": "2026-10-01T00:00:00Z", "urgent": false }
 ```
+
 - `recordId`、`reason` 必填（缺失 **400**）
 - 仅 `ARCHIVED` 在架病案可申请（否则 **409**）；`dueTime` 留空默认 `config.yaml borrow.borrow_days` 天
-- `borrowerName` 取当前登录用户，`borrowerDept` 取病案科室
-→ `data: { "msg": "申请已提交" }`（**不返回借阅单对象**，前端需另行刷新列表）
+- `borrowerName` 取当前登录用户，`borrowerDept` 取病案科室  
+  → `data: { "msg": "申请已提交" }`（**不返回借阅单对象**，前端需另行刷新列表）
 
 ### PUT /api/borrows/:id/approve  （ADMIN）审批
+
 ```json
 { "result": "APPROVED", "opinion": "同意" }
 ```
-`result` 只能是 `APPROVED`/`REJECTED`（否则 400）。多级审批（级数见 `config.yaml borrow.approve_levels`，当前 1 级）：全部通过 → `APPROVED`，未达级数保持 `APPLYING`，任一级驳回 → `REJECTED`。
+
+`result` 只能是 `APPROVED`/`REJECTED`（否则 400）。多级审批（级数见 `config.yaml borrow.approve_levels`，当前 1 级）：全部通过 → `APPROVED`，未达级数保持 `APPLYING`，任一级驳回 → `REJECTED`。  
 → `data: { "msg": "审批完成" }`
 
 ### PUT /api/borrows/:id/lend  （ADMIN）借出
-`APPROVED → BORROWED`，同时病案 `ARCHIVED → BORROWED`（条件更新防并发双借）。
+
+`APPROVED → BORROWED`，同时病案 `ARCHIVED → BORROWED`（条件更新防并发双借）。  
 → `data: { "msg": "借出完成" }`；**409**：非审批通过状态 / 病案不在架
 
 ### PUT /api/borrows/:id/return  （ADMIN）归还核销
-`BORROWED/OVERDUE → RETURNED`，病案回 `ARCHIVED`。
+
+`BORROWED/OVERDUE → RETURNED`，病案回 `ARCHIVED`。  
 → `data: { "msg": "归还核销完成" }`
 
 ### PUT /api/borrows/:id/renew  （登录用户）续借
+
 ```json
 { "days": 7 }
 ```
-`days` 必须 **1–60**（否则 400）；仅 `BORROWED` 可续（`OVERDUE` 需先归还，**409**）；`dueTime` 顺延 days 天。
+
+`days` 必须 **1–60**（否则 400）；仅 `BORROWED` 可续（`OVERDUE` 需先归还，**409**）；`dueTime` 顺延 days 天。  
 → `data: { "msg": "已续借 7 天" }`
 
 ## 6. 借阅台账（节 6）
 
-### GET /api/borrow-ledger/page?status=&keyword=&overdueOnly=true&urgent=true&page=&size=
+### GET /api/borrow-ledger/page?status=\&keyword=\&overdueOnly=true\&urgent=true\&page=\&size=
+
 - `keyword` 模糊匹配 `orderNo` / `recordNo` / `borrowerName`
 - `overdueOnly=true` → `status=OVERDUE` **或**（`status=BORROWED` 且 `dueTime < now`）
 - `urgent=true` → 仅加急单
 
-**借阅单字段**：`id, orderNo, recordId, recordNo, borrowerName, borrowerDept, reason, urgent, status, applyTime, lendTime, dueTime, returnTime, handlerName, remark, createdAt, updatedAt`
+**借阅单字段**：`id, orderNo, recordId, recordNo, borrowerName, borrowerDept, reason, urgent, status, applyTime, lendTime, dueTime, returnTime, handlerName, remark, createdAt, updatedAt`  
 `status`：`APPLYING 审批中` `APPROVED 待借出` `REJECTED 已驳回` `BORROWED 借出` `OVERDUE 逾期` `RETURNED 已归还`
 
 ### GET /api/borrow-ledger/:id/approvals  审批链
+
 → `data: [{ id, orderId, level, approverName, result, opinion, createdAt }]`，按 `level ASC`
 
 ### POST /api/borrow-ledger/:id/remind  （ADMIN）人工催还
-写一条 `borrow_reminder`（`channel=SYSTEM`）。**仅登记记录，无实际通知动作**（缺口 D6）。
+
+写一条 `borrow_reminder`（`channel=SYSTEM`）。**仅登记记录，无实际通知动作**（缺口 D6）。  
 → `data: { id, orderId, channel, result, createdAt }`
 
 ## 7. 统计分析（节 7）
@@ -246,14 +284,17 @@ body 为病案字段子集；`recordNo` 留空自动生成（`BA` + `yyyyMMddHHm
 
 首页状态机：`DRAFT 草稿` `WAIT_QC 待质控` `QC_PASSED 质控通过` `QC_REJECTED 质控退回` `REPORTED 已上报`
 
-### GET /api/front-pages/page?status=&keyword=&page=&size=
-`keyword` 模糊匹配 `patientName` / `hospitalNo`。
+### GET /api/front-pages/page?status=\&keyword=\&page=\&size=
+
+`keyword` 模糊匹配 `patientName` / `hospitalNo`。  
 → `data: { list: [首页], total }`
 
 ### GET /api/front-pages/:recordId
+
 → `data: { frontPage: 首页, qcResults: [质控项] }`（`qcResults` 按 `id DESC`；**404** 表示该病案尚无首页）
 
 **首页字段**：`id, recordId, patientName, gender, birthDate, hospitalNo, deptName, doctorName, admitTime, dischargeTime, actualDays, admitDiagnosis, dischargeDiagnosis, mainDiagnosisCode, otherDiagnosisCodes, otherDiagnosisFlags, mainOperationCode, otherOperationCodes, totalCost, extJson, externalCauseCode, externalCauseName, newbornBirthWeight, newbornGestationalWeeks, status, createdAt, updatedAt`
+
 
 **其他诊断的严重度标记（ADR-0002，2026-10-09 新增）**：
 
@@ -289,9 +330,13 @@ body 为病案字段子集；`recordNo` 留空自动生成（`BA` + `yyyyMMddHHm
 
 ### PUT /api/front-pages/:recordId  （ADMIN）保存首页（upsert）
 - 白名单字段更新，**忽略** `id/recordId/status`（由后端决定）
+- **400 其他诊断不合法**（ADR-0002 §5，2026-10-16 接线）：请求在**动数据库之前**先经 `service.CanonicalizeOtherDiagnoses` 校验 + 规范化；命中「重复编码 / 两侧长度不等 / 非法标记（如 `X`、`c`）」即 **400 拒绝**（`msg` 形如 `其他诊断数据不合法：…`），脏数据不进库。校验放在事务之前是**纯内存校验、快速失败**，不触发归档锁定 / 变更留痕等副作用
+  - 规范化：编码做 `ToUpper + TrimSpace`、空槽与其 flag 成对丢弃；`flags` 整串为空时按全 `0` 补齐至等长；**落库值恒为规范双串且幂等**（反复保存不抖动）
+  - 出错时错误响应回显的是**录入原文**（解析层出错原样返回入参），便于定位脏数据
 - 保存后状态一律置 `WAIT_QC`（形成「修正 → 重新质控」闭环），并**写一条变更留痕**（`front_page_revision`）
 - **409 归档锁定**：病案 `ARCHIVED/BORROWED/SEALED` 时禁止修改（批次 1 新增）
 - **409 已上报禁改**：首页 `status=REPORTED` 时禁止修改
+- **⚠️ 全量赋值语义（前端必读）**：后端只写「白名单里出现过的字段」，未出现的白名单字段会被写成 Go 零值（空串/0/null）。故前端**必须**用完整快照回传（`api-store.js` 的 `frontPagePayload`）；`otherDiagnosisFlags` 已于 2026-10-16 补入该函数的白名单（此前漏传会把该列清空，与缺口 D3 同类）
 - 可选变更事由：请求头 `X-Change-Reason: xxx` 或查询参数 `?reason=xxx`（默认「首页数据修改」）
 → `data: { "msg": "已保存并进入待质控" }`
 
@@ -467,6 +512,7 @@ body 为病案字段子集；`recordNo` 留空自动生成（`BA` + `yyyyMMddHHm
 → `data: 质量评分对象`；**404** `尚无质量评分，请先执行质控`（每次质控按 recordId 覆盖一条）
 
 **质量评分字段**：`id, recordId, score(0-100), gradeCode(A/B/C), gradeName(甲级/乙级/丙级), errorCount, warnCount, vetoed, vetoReason, scoredAt, createdAt, updatedAt`
+
 
 **评分口径（自定，非官方细则）**：基础 100 分；每条 `ERROR` −15；每条 `WARN` −5；最低 0 分。
 等级：`≥90 甲级(A)`、`75–89 乙级(B)`、`<75 丙级(C)`。
@@ -648,9 +694,61 @@ OPEN ──退回──→ RETURNED ──临床整改──→ RECTIFIED ──
 
 ---
 
-## 17. 前端集成现状（`frontend/js/api-store.js`）
+## 17. 扩展：CC/MCC 严重度判读预览 · ADR-0002 批次 D
 
-> 统计口径：`internal/router/frontend_calls_test.go` 的 `TestFrontendCallsResolveToRegisteredRoutes` 会**扫描前端源码**提取后端请求并与真实路由比对，当前报告的实测值为：**前端共 51 条请求，全部能匹配到已注册路由（0 条指向不存在的接口、0 条方法不匹配）**；其余未被前端调用的接口即「仅后端 API」，与 SPEC.md §2.3 的「仅后端 API，无界面」一致。
+> **重要声明（边界）**：本接口**不出具 DRG/DIP 分组码、权重与金额**（ADR §2 明确不做的边界），只回答「某个其他诊断在本院口径下像 CC 还是 MCC」，用于严重度分层预览与低靠/高靠提示。判读依据为院内演示用 CC/MCC 表（`source=demo`），**非国家医保局官方表**。
+
+### POST /api/ccmcc-preview  （登录）
+
+请求体两种形态**二选一**（同时给出时以 `mainDiagnosisCode` 为准——显式传码是更强的意图）：
+
+```json
+{ "recordId": 123 }
+{ "mainDiagnosisCode": "I21.900", "otherDiagnosisCodes": "I50.900,K80.201", "otherDiagnosisFlags": "M,0" }
+```
+
+- 形态一 `recordId`：取其首页的主诊断与其他诊断双串（**404** `该病案暂无首页数据，无法进行 CC/MCC 判读`）
+- 形态二：直接传码，供编目阶段首页尚未落库时「先判读、后落库」
+- `otherDiagnosisFlags` 与 `otherDiagnosisCodes` **按逗号位置一一对应**（`'0'` 无 / `'C'` CC / `'M'` MCC）；重复编码、两串长度不等、非法标记 → **400** `其他诊断数据不合法：…`
+- 既无 `recordId` 又无 `mainDiagnosisCode` → **400** `请传 recordId 或 mainDiagnosisCode`；`recordId` 为负 → **400**
+→ `data: service.CcMccJudgement`
+
+```json
+{
+  "mainDiagnosisCode": "I21.900",
+  "version": "demo-2026.10",
+  "items": [
+    { "code": "I50.900", "severity": "MCC", "matchedPrefix": "I50", "excluded": false, "source": "demo", "remark": "心力衰竭：演示条目，非官方 MCC 判定" },
+    { "code": "K80.201", "severity": "0", "matchedPrefix": "", "excluded": false, "source": "", "remark": "" }
+  ],
+  "overallSeverity": "MCC",
+  "mccCount": 1, "ccCount": 0,
+  "sources": ["demo"],
+  "demoOnly": true,
+  "disclaimer": "本判断基于院内演示用 CC/MCC 判读表（Source=demo，非国家医保局官方表），仅供编码质控参考，不作为医保结算或 DRG/DIP 分组依据；正式严重度分层须使用官方发布的 CC/MCC 表与分组器。"
+}
+```
+
+**字段说明**：
+- `items` 与入参 `otherDiagnosisCodes` **按位置一一对应**（含空编码占位，空输入为 `[]` 而非 `null`），可直接与首页已录的 `otherDiagnosisFlags` 逐位比对——这正是批次 C「低靠（漏编）/ 高靠（套高）」两条 WARN 质控提示的判定依据（见 §8 质控与 `qc_rule` 的 `CC_MCC_LOW` / `CC_MCC_HIGH`）
+- `severity`：`MCC` / `CC` / `0`（无严重度取 `"0"`，与首页标记串 `'0'/'C'/'M'` 同口径，避免同一份响应里出现两种「无」）
+- `excluded=true`：命中的规则被**排除规则**挡下（主诊断命中该规则的排除前缀），该诊断**不计**为 CC/MCC，原因见 `excludeReason`；此时**不回退**到更宽泛的规则
+- `overallSeverity`：总体分层（MCC > CC > 0）；`sources`：生效规则的来源集合（升序去重）
+- `version` 为空 ⇒ **无规则生效**（fail-closed）：宁可判「无严重度」，也不让未声明版本的规则悄悄参与判断
+
+**三条合规红线（ADR §4 / §6，调用方必须遵守）**：
+1. `disclaimer` **是响应契约的一部分**——任何返回严重度判断的接口都必须原样携带，调用方**不得省略、截断或自造**免责文案。文案由判读层 `service.CcMccDisclaimer` 统一填充，handler 不改写、前端只负责展示（在调用方再造一份等于把「谁对文案负责」变成两处可写，任一侧改短都会让合规口径漂移）。
+2. `source=demo` / `demoOnly=true` 时，前端必须**显著标注**「非官方、不得作为结算依据」。`demoOnly=true` 的判定口径：命中过规则、且命中的规则里没有 `official` 来源（一条都未命中时为 `false`——没有依据就不冒充「演示结论」）。
+3. 本接口**不出具**分组码、权重、金额。响应中出现这些字段即为越界（ADR §2/§6）；需要分组与权重时须使用国家医保局官方分组器与权重表。
+
+> 规则来源：优先按版本读库（`cc_mcc_rule`，`service.LoadCcMccRules`），读不到或该版本无数据时降级内置演示表 `service.CcMccDemoRules`——与 `RunQc` 同口径，宁可降级也不让判读断供。两种来源当前**一律 `source=demo`**（官方 2.0 版 CC/MCC 表尚未取得），`demoOnly` / `disclaimer` 照常如实标注；官方表到位后另起版本号，`sources` 会出现 `official`。
+> 前端接入：`frontend/js/api-store.js` 已封装 `ext.ccmccPreview(payload)`，严重度面板见 `frontend/js/components/ccmcc.js`。
+
+---
+
+## 18. 前端集成现状（`frontend/js/api-store.js`）
+
+> 统计口径：`internal/router/frontend_calls_test.go` 的 `TestFrontendCallsResolveToRegisteredRoutes` 会**扫描前端源码**提取后端请求并与真实路由比对，当前报告的实测值为：**前端共 52 条请求，全部能匹配到已注册路由（0 条指向不存在的接口、0 条方法不匹配）**（52 = 51 + 批次 D 新增的 `ext.ccmccPreview`）；其余未被前端调用的接口即「仅后端 API」，与 SPEC.md §2.3 的「仅后端 API，无界面」一致。
 > ⚠️ 该测试读取 module 之外的 `frontend/`，Go 测试缓存不跟踪它——改动前端后请用 `go test -count=1`，否则可能拿到缓存的假绿灯。
 > **新增能力已封装在 `MRMS.ext` 命名空间**（与 `MRMS.actions` 分离，避免污染既有调用）：`ext.suggestCodes`、`ext.suggestionRulesPage`、`ext.drgPreview`、`ext.drgRulesPage`、`ext.quality`、`ext.qcWorkbench`、`ext.qcReturn`、`ext.qcRectify`、`ext.qcReview`、`ext.revisions`、`ext.archiveTimeliness`、`ext.archiveOverdue`、`ext.reportConsistency`、`ext.reportConsistencySummary`、`ext.reportExportCheck`、`ext.downloadReportExport`、**`ext.myPendingQc`（D4）**、**`ext.getFrontPage` / `ext.saveFrontPage` / `ext.runQc`（D3 前端）**（`ext.call(promise, okMsg)` 为带 toast 的便捷包装）。
 >
@@ -675,6 +773,23 @@ OPEN ──退回──→ RETURNED ──临床整改──→ RECTIFIED ──
 ---
 
 ## 变更记录
+
+**2026-10-27 · ADR-0002 批次 D：新增 CC/MCC 严重度判读预览（契约总数 94 → 95）**
+
+新增 1 条接口文档（§17）：
+- `POST /api/ccmcc-preview`（登录）：严重度判读预览，两种入参形态（`recordId` 或 `mainDiagnosisCode` + 其他诊断双串），响应为 `service.CcMccJudgement`
+
+同步更新：文首「路由总量 94 → 95 条」与覆盖率 `94/94 → 95/95`；原 §17「前端集成现状」顺延为 §18。
+文档内已写明 ADR §4/§6 的三条合规红线：`disclaimer` 属响应契约不得省略或自造；`demoOnly=true` 时前端须显著标注「非官方、不得作为结算依据」；本接口不出具分组码/权重/金额。
+
+**2026-10-16 · 批次 B 接线（ADR-0002 §5，无新增路由，契约总数不变 94）**
+
+`PUT /api/front-pages/:recordId` 行为增强（**非破坏性**，合法请求零影响）：
+- 请求体在落库前先经解析层 `service.CanonicalizeOtherDiagnoses` 校验 + 规范化；「重复编码 / 长度不等 / 非法标记」→ 新增 **400** 拒绝（此前会静默写入脏数据）
+- 落库的其他诊断双串恒为规范形态（编码 `ToUpper+TrimSpace`、空槽成对丢弃、空 `flags` 补零对齐），且幂等
+- `other_diagnosis_flags` 早已在白名单内（本轮未增删字段）；前端 `api-store.js` 的 `FP_TEXT` 补入 `otherDiagnosisFlags`（漏传会导致该列被全量赋值清空）
+
+守卫测试：`internal/handler/frontpage_otherdiag_test.go`（nil-DB 技巧证「校验先于库」）、`internal/service/other_diagnosis_test.go` 的 `CanonicalizeOtherDiagnoses` 用例。已做负控制（注入旁路→变红并精确指位→逐字节还原）。
 
 **2026-10-09 · 本轮同步（补齐批次 1 扩展 + 修正旧描述）**
 

@@ -549,6 +549,158 @@ func TestParseOtherDiagnosesAlignmentMismatchGuards(t *testing.T) {
 	})
 }
 
+// ---------- 用例 11：写路径入口 CanonicalizeOtherDiagnoses ----------
+
+// TestCanonicalizeOtherDiagnoses 固化写路径入口的「校验 + 规范化」契约。
+//
+// 它是 Save 落库前唯一入口，故这里把三类东西一并钉死：
+//  1. 合法输入的规范化结果（大小写/空格归一、整串空 flags 补零）；
+//  2. 非法输入按哨兵错误分类拒绝（重复编码 / 长度不等 / 非法标记）；
+//  3. **出错时返回值必须是原样的入参**——调用方需要用它回显录入原文定位脏数据，
+//     若实现改成返回半规范化结果，回显与用户所见会不一致。
+//
+// 另单独覆盖幂等：对已规范化的输入再调一次，结果不变（否则反复保存会抖动落库值）。
+func TestCanonicalizeOtherDiagnoses(t *testing.T) {
+	cases := []struct {
+		name      string
+		codes     string
+		flags     string
+		wantCodes string
+		wantFlags string
+		wantErr   error // nil 表示期望无错误
+		designNot string
+	}{
+		{
+			name:      "正常：大小写与空格被规范化",
+			codes:     " i10.x00 , e11.901 ",
+			flags:     " 0 , C ",
+			wantCodes: "I10.X00,E11.901",
+			wantFlags: "0,C",
+			designNot: "落库形态必须是规范双串，否则每次保存都抖动",
+		},
+		{
+			name:      "空输入：两侧皆空",
+			codes:     "",
+			flags:     "",
+			wantCodes: "",
+			wantFlags: "",
+			designNot: "空就是空，返回空串而非 nil error + 脏形态",
+		},
+		{
+			name:      "空输入：两侧都是空白串等同空输入",
+			codes:     " ",
+			flags:     "\t",
+			wantCodes: "",
+			wantFlags: "",
+		},
+		{
+			name:      "codes 非空 + flags 整串为空：补等长全 0",
+			codes:     "I10.x00,E11.901",
+			flags:     "",
+			wantCodes: "I10.X00,E11.901",
+			wantFlags: "0,0",
+			designNot: "历史数据形态（flags 列必然空）：按解析层第 5 条补零后仍须等长对齐",
+		},
+		{
+			name:      "重复编码：必须拒绝",
+			codes:     "I10.x00,I10.x00",
+			flags:     "0,C",
+			wantCodes: "I10.x00,I10.x00", // 出错时原样回显
+			wantFlags: "0,C",
+			wantErr:   ErrOtherDiagnosisDuplicate,
+			designNot: "ADR §5 硬约束：codes 内不允许重复编码",
+		},
+		{
+			name:      "长度不等：codes 3 项 / flags 2 项必须拒绝",
+			codes:     "I10.x00,E11.901,N18.500",
+			flags:     "0,C",
+			wantCodes: "I10.x00,E11.901,N18.500",
+			wantFlags: "0,C",
+			wantErr:   ErrOtherDiagnosisLengthMismatch,
+		},
+		{
+			name:      "非法标记：X 必须拒绝而非降级",
+			codes:     "I10.x00",
+			flags:     "X",
+			wantCodes: "I10.x00",
+			wantFlags: "X",
+			wantErr:   ErrOtherDiagnosisInvalidFlag,
+			designNot: "静默降级会把 CC/MCC 抹掉，风险方向是漏报",
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			gotCodes, gotFlags, err := CanonicalizeOtherDiagnoses(c.codes, c.flags)
+
+			if c.wantErr != nil {
+				if err == nil {
+					t.Fatalf("CanonicalizeOtherDiagnoses(%q, %q) 未报错，期望 %v", c.codes, c.flags, c.wantErr)
+				}
+				if !errors.Is(err, c.wantErr) {
+					t.Fatalf("错误类型 = %v, 期望 %v", err, c.wantErr)
+				}
+			} else if err != nil {
+				t.Fatalf("CanonicalizeOtherDiagnoses(%q, %q) 意外报错：%v", c.codes, c.flags, err)
+			}
+
+			if gotCodes != c.wantCodes || gotFlags != c.wantFlags {
+				t.Fatalf("返回 = (%q, %q), 期望 (%q, %q)（%s）",
+					gotCodes, gotFlags, c.wantCodes, c.wantFlags, c.designNot)
+			}
+		})
+	}
+}
+
+// TestCanonicalizeOtherDiagnosesEchoesInputOnError 单独固化"出错时原样回显入参"：
+// 调用方要在 400 响应里带上录入原文，半规范化会制造"回显 ≠ 用户输入"的分裂，
+// 这属于契约而非实现细节，故与主表分开、显式断言。
+func TestCanonicalizeOtherDiagnosesEchoesInputOnError(t *testing.T) {
+	cases := []struct{ name, codes, flags string }{
+		{"重复编码", " i10.x00 , i10.X00 ", " 0 , C "},
+		{"长度不等", "A00.0,B00.0", "0"},
+		{"非法标记", "A00.0", " x "},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			gotCodes, gotFlags, err := CanonicalizeOtherDiagnoses(c.codes, c.flags)
+			if err == nil {
+				t.Fatalf("期望报错，实际未报错（返回 %q/%q）", gotCodes, gotFlags)
+			}
+			if gotCodes != c.codes || gotFlags != c.flags {
+				t.Fatalf("出错时应原样返回入参：实际 (%q, %q), 期望 (%q, %q)",
+					gotCodes, gotFlags, c.codes, c.flags)
+			}
+		})
+	}
+}
+
+// TestCanonicalizeOtherDiagnosesIdempotent 幂等：规范化输出再送入应保持不变。
+// 依据：Save 是 upsert，同一份数据可能被反复提交；若本函数不幂等，
+// 落库值会在两次保存之间抖动，使变更留痕产生噪声。
+func TestCanonicalizeOtherDiagnosesIdempotent(t *testing.T) {
+	inputs := []struct{ codes, flags string }{
+		{" i10.x00 , e11.901 ", " 0 , C "},
+		{"I10.x00,E11.901", ""},
+		{"", ""},
+		{"N18.500,A00.0", "M,0"},
+	}
+	for _, in := range inputs {
+		firstCodes, firstFlags, err := CanonicalizeOtherDiagnoses(in.codes, in.flags)
+		if err != nil {
+			t.Fatalf("首次规范化 (%q,%q) 意外报错：%v", in.codes, in.flags, err)
+		}
+		secondCodes, secondFlags, err := CanonicalizeOtherDiagnoses(firstCodes, firstFlags)
+		if err != nil {
+			t.Fatalf("二次规范化 (%q,%q) 意外报错：%v", firstCodes, firstFlags, err)
+		}
+		if firstCodes != secondCodes || firstFlags != secondFlags {
+			t.Fatalf("不幂等：第一次 (%q,%q)，第二次 (%q,%q)",
+				firstCodes, firstFlags, secondCodes, secondFlags)
+		}
+	}
+}
+
 // dumpItems 把解析结果渲染成便于比对失败时阅读的形式（含原槽位号）。
 func dumpItems(items []OtherDiagnosisItem) string {
 	if len(items) == 0 {

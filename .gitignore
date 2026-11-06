@@ -38,3 +38,13 @@ __pycache__/
 
 # ---------- 临时文件 ----------
 *.tmp
+
+# ---------- 本地工作区数据 / 转码中间产物（不入库，2026-11-06 补） ----------
+# 工作区记忆与日志属于本地协作过程，不是项目源码
+.workbuddy/
+# README 演示 GIF 的抽帧与 Pillow 临时安装目录（由录屏现场重生成）
+docs/screenshots/.frames/
+docs/screenshots/video-stills/
+.tmp-pil/
+# 打包分发产物（内容可由仓库重建，不入库）
+病案管理系统-打包.zip

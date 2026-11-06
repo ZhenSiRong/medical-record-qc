@@ -109,11 +109,37 @@
     template: '<div class="progress" :class="tone"><i :style="{ width: Math.min(100, Math.max(0, value)) + \'%\' }"></i></div>'
   };
 
+  /* --------------------------- 角色权限提示条 ---------------------------
+     用途：页面里存在「对当前角色置灰」的写操作时，把原因显式写在页面上。
+
+     为什么需要这个组件（2026-10-09 前端角色门控）：
+     用户明确要求控件**不要直接隐藏**——只置灰而不说明，用户看到的是"点了没反应"，
+     与"系统坏了"无法区分；直接隐藏则让临床根本不知道系统有这个能力。
+     故统一为「置灰 + title 提示 + 本提示条说明原因」，本组件承载第三项，
+     并保证同一句话在全站只有一份文案（各页面通过 text 传入具体范围）。
+     置灰按钮的 title 文案同样来自适配层能力表（MRMS.util.denyHint），与判据同源。 */
+  var MrRoleNotice = {
+    name: 'MrRoleNotice',
+    props: {
+      text: {
+        type: String,
+        default: '当前账号为临床医师，本页的写操作需病案室权限：相关按钮已置灰，查询与只读查看不受影响。'
+      }
+    },
+    template: [
+      '<div class="alert info">',
+      '  <span class="ai">i</span>',
+      '  <span>{{ text }}</span>',
+      '</div>'
+    ].join('\n')
+  };
+
   window.MRCommon = {
     MrPager: MrPager,
     MrEmpty: MrEmpty,
     MrModal: MrModal,
     MrProgress: MrProgress,
+    MrRoleNotice: MrRoleNotice,
     mrTone: mrTone
   };
 })();

@@ -49,6 +49,19 @@ func (h *FrontPageHandler) Save(c *gin.Context) {
 		resp.BadRequest(c, "参数错误: "+err.Error())
 		return
 	}
+	// ADR-0002 §5（批次 B 接线）：其他诊断的编码串与严重度标记串是「按逗号位置等长对齐」
+	// 的**隐式契约**，数据库层面无结构性约束能保证对齐。若在此放行未校验的脏数据
+	// （重复编码 / 长度不等 / 非法标记），严重度分层与后续 CC/MCC 预警会建立在错位数据
+	// 之上并被静默毒化（分层虚高或漏报，风险方向不可控），故写路径必须先经解析层
+	// 统一校验 + 规范化。放在事务之前：这是一次纯内存校验，快速失败，不占用数据库
+	// 事务，也不触发归档锁定 / 变更留痕等有副作用的逻辑——不合法就直接挡在门外。
+	normCodes, normFlags, diagErr := service.CanonicalizeOtherDiagnoses(req.OtherDiagnosisCodes, req.OtherDiagnosisFlags)
+	if diagErr != nil {
+		resp.BadRequest(c, "其他诊断数据不合法："+diagErr.Error())
+		return
+	}
+	req.OtherDiagnosisCodes, req.OtherDiagnosisFlags = normCodes, normFlags
+
 	_, username, _ := middleware.CurrentUser(c)
 	reason := changeReason(c)
 

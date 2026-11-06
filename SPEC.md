@@ -557,6 +557,7 @@ docker compose up -d --build
 | 接口契约文档 | ✅ `mrs-backend/docs/API.md` 与实现同步（94 条路由） |
 | 契约覆盖度双向核对 | ✅ `TestApiCoverage` 自动核对文档 ↔ 真实路由，当前 **94/94 = 100%**；`tools/check-api-coverage.py` 供人工复核 |
 | 前端调用 ↔ 路由核对 | ✅ `TestFrontendCallsResolveToRegisteredRoutes`：前端 51 条请求**全部**匹配已注册路由（0 条不存在、0 条方法不符） |
+| 行为规范可执行化（BDD） | ✅ `internal/bdd`（godog）驱动 `features/*.feature`：**11 场景 / 36 步全过**。挂**真实全量路由树 + 真实中间件链**，db=nil 自足运行（不需 PostgreSQL / Redis / 应用进程）。Gherkin 与 runner 解耦，将来可另起 pytest-bdd 引用同一批 `.feature` |
 
 > ⚠️ **`-count=1` 是必须的**：`frontend/` 在 Go module（`mrs-backend/`）之外，**Go 测试缓存不跟踪 module 外的文件**，故只改前端时 `go test` 会返回 `(cached)` 假绿灯。实测证明：注入一个不存在的路径后，不加 `-count=1` 显示 `ok (cached)`，加上后立即 FAIL。因此凡涉及前端的验证一律用 `go test ./... -count=1`。
 

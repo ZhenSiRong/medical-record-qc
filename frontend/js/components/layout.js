@@ -6,16 +6,31 @@
   'use strict';
   var computed = Vue.computed;
 
-  // 导航项。roles 缺省表示不限角色；adminName/adminTitle/adminCrumb 用于同一页面在
+  // 导航项。roles 缺省/null 表示不限角色；adminName/adminTitle/adminCrumb 用于同一页面在
   // 病案室视角下的不同表述（缺口 D4：「我的待整改」对临床是待办，对病案室是督办）。
+  //
+  // 2026-10-09 角色门控（本文件归属本次改动）：roles 不再手写角色数组，而是从适配层
+  // 能力表派生（MRMS.util.capRoles）。理由：导航可见性与页面内控件的置灰必须同源——
+  // 若导航写 ['ADMIN']、按钮门控写 canArchive()，两处各自维护迟早漂移成
+  //「导航藏了页面、里面的写按钮却仍可点」。派生后改 CAPS 一处即两边同步。
+  // 口径来源（用户已确认，不改后端权限）：归档/编目/数据统计/质量看板/首页上报 = 病案室；
+  // 工作台 = 只读概览不限角色；病案借阅 = 临床要申请借阅（审批类按钮在页面内单独门控）；
+  // 我的待整改/整改督办 = D4 已实现，两角色都可见（同一页面对病案室换表述）。
+  var U = MRMS.util;
   var NAV = [
     { key: 'dashboard',  name: '工作台',        icon: 'ri-dashboard-3-line', title: '工作台总览',       crumb: '首页 / 工作台' },
-    { key: 'archive',    name: '病案归档',      icon: 'ri-archive-line', title: '病案归档管理',     crumb: '首页 / 病案归档' },
-    { key: 'catalog',    name: '病案编目',      icon: 'ri-price-tag-3-line', title: '病案编目管理',     crumb: '首页 / 病案编目' },
-    { key: 'borrow',     name: '病案借阅',      icon: 'ri-book-open-line', title: '病案借阅管理',     crumb: '首页 / 病案借阅' },
-    { key: 'statistics', name: '数据统计',      icon: 'ri-bar-chart-grouped-line', title: '病案数据统计',     crumb: '首页 / 数据统计' },
-    { key: 'report',     name: '首页数据上报',  icon: 'ri-upload-cloud-2-line', title: '病案首页数据上报', crumb: '首页 / 数据上报' },
-    { key: 'quality',    name: '质量看板',      icon: 'ri-shield-check-line', title: '病案质量看板',     crumb: '首页 / 质量看板' },
+    { key: 'archive',    name: '病案归档',      icon: 'ri-archive-line', title: '病案归档管理',     crumb: '首页 / 病案归档',
+      roles: U.capRoles('archive.manage') },
+    { key: 'catalog',    name: '病案编目',      icon: 'ri-price-tag-3-line', title: '病案编目管理',     crumb: '首页 / 病案编目',
+      roles: U.capRoles('catalog.manage') },
+    { key: 'borrow',     name: '病案借阅',      icon: 'ri-book-open-line', title: '病案借阅管理',     crumb: '首页 / 病案借阅',
+      roles: U.capRoles('borrow.apply') },
+    { key: 'statistics', name: '数据统计',      icon: 'ri-bar-chart-grouped-line', title: '病案数据统计',     crumb: '首页 / 数据统计',
+      roles: U.capRoles('stats.view') },
+    { key: 'report',     name: '首页数据上报',  icon: 'ri-upload-cloud-2-line', title: '病案首页数据上报', crumb: '首页 / 数据上报',
+      roles: U.capRoles('report.manage') },
+    { key: 'quality',    name: '质量看板',      icon: 'ri-shield-check-line', title: '病案质量看板',     crumb: '首页 / 质量看板',
+      roles: U.capRoles('quality.board') },
     { key: 'rectify',    name: '我的待整改',    icon: 'ri-error-warning-line', title: '待整改质控项',     crumb: '首页 / 我的待整改',
       roles: ['DEPT_USER', 'ADMIN'], adminName: '整改督办', adminTitle: '质控整改督办', adminCrumb: '首页 / 整改督办' }
   ];
@@ -102,8 +117,14 @@
       });
 
       var current = computed(function () { return pageMap[S.route] || P.Dashboard; });
+      // 顶栏标题取当前路由自身的定义：若当前页对该角色不可见（导航只隐藏不改路由，
+      // 例如临床从工作台「待办事项」点进病案归档），也要显示它自己的标题，
+      // 不能让顶栏回落到 navList[0] 而显示成「工作台总览」——那会让人误判自己在哪一页，
+      // 也让页面内的「无权限」说明显得自相矛盾。
       var meta = computed(function () {
-        return navList.value.find(function (n) { return n.key === S.route; }) || navList.value[0] || NAV[0];
+        return navList.value.find(function (n) { return n.key === S.route; }) ||
+          NAV.find(function (n) { return n.key === S.route; }) ||
+          navList.value[0] || NAV[0];
       });
 
       // 侧栏待办角标

@@ -117,6 +117,10 @@ const (
 	// 以下两类为扩展规则（任务6，DRG/DIP 付费改革下的病案首页质控）：
 	QcDiagOpMatch  = "DIAG_OP_MATCH"  // 主诊断-主要手术匹配校验，防落 DRG 歧义组(QY)
 	QcMainDiagRule = "MAIN_DIAG_RULE" // 主要诊断选择合理性提示（WARN 级，不拦截）
+	// ADR-0002 批次 C：CC/MCC 完整性预警（两条必须各自独立成规则 —— 质控结果判重键是
+	// (record_id, rule_id, field_name)，同一条规则产出两条同字段消息会被合并成一条）。
+	QcCcMccLow  = "CC_MCC_LOW"  // 低靠（漏编）：编码构成 CC/MCC 但未标记 ⇒ 提示核对
+	QcCcMccHigh = "CC_MCC_HIGH" // 高靠（套高）：标记了 CC/MCC 但编码不构成 ⇒ 提示审核风险
 )
 
 type QcRule struct {

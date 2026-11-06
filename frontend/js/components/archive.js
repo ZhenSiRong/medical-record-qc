@@ -11,10 +11,25 @@
     components: {
       MrPager: MRCommon.MrPager,
       MrEmpty: MRCommon.MrEmpty,
-      MrModal: MRCommon.MrModal
+      MrModal: MRCommon.MrModal,
+      MrRoleNotice: MRCommon.MrRoleNotice
     },
     setup: function () {
       var S = MRMS.state, A = MRMS.actions, St = MRMS.stats, U = MRMS.util;
+
+      /* ---------------- 角色能力门控（2026-10-09，本文件归属本次改动） ----------------
+         本页写操作全挂后端 admin 组，临床医师调用必 403：
+           POST /records（登记）、PUT /records/:id（修改）、
+           POST /archives/recycle（回收/批量归档）、POST /archives/shelve（上架）、
+           POST /archives/seal/:id（封存）。
+         导航已按同一能力表对本角色隐藏本页（layout.js），但导航只隐藏不改路由
+         （例如临床从工作台「待办事项」点进来），故控件是第二道防线：
+         **置灰 + 原因提示**，而不是隐藏——隐藏会让临床不知道系统有这个能力。
+         判据取自适配层能力表，组件里不比较角色码；用 computed 包裹以保持响应式。 */
+      var canRegister = computed(function () { return U.canRegisterRecord(); });
+      var canArchive = computed(function () { return U.canArchive(); });
+      // 登记与归档同属病案室权限，提示文案取同一份（来源与判据同源，改 CAPS 即全站生效）
+      var denyHint = U.denyHint('archive.manage');
 
       var filters = reactive({
         keyword: '', dept: 'all', status: 'all', from: '', to: ''
@@ -99,6 +114,7 @@
       });
 
       function openAdd() {
+        if (!canRegister.value) { A.toast(denyHint, 'err'); return; }
         form.name = ''; form.gender = '男'; form.age = 45;
         form.diagMain = ''; form.icdCode = ''; form.icdCat = '';
         form.admitDate = U.today(); form.dischargeDate = U.today();
@@ -119,6 +135,7 @@
       }
 
       function submitAdd() {
+        if (!canRegister.value) { A.toast(denyHint, 'err'); return; }
         if (!form.name.trim()) { A.toast('请填写患者姓名', 'err'); return; }
         if (!form.icdCode) { A.toast('请选择主要诊断', 'err'); return; }
         if (form.dischargeDate < form.admitDate) { A.toast('出院日期不能早于入院日期', 'err'); return; }
@@ -142,10 +159,12 @@
 
       /* ---------------- 归档操作 ---------------- */
       function archiveOne(r) {
+        if (!canArchive.value) { A.toast(denyHint, 'err'); return; }
         A.archive(r.mrNo);
         A.toast('病案 ' + r.mrNo + ' 已归档');
       }
       function archiveSelected() {
+        if (!canArchive.value) { A.toast(denyHint, 'err'); return; }
         if (!selected.value.length) { A.toast('请先勾选需要归档的病案', 'err'); return; }
         var targets = pendingSelected();
         if (!targets.length) { A.toast('所选病案均已归档，无需重复操作', 'err'); return; }
@@ -184,6 +203,8 @@
 
       return {
         S: S, U: U, filters: filters, page: page, size: size,
+        // 角色能力门控（模板里用 canRegister / canArchive / denyHint）
+        canRegister: canRegister, canArchive: canArchive, denyHint: denyHint,
         list: list, paged: paged, selected: selected, detail: detail,
         showAdd: showAdd, form: form, allChecked: allChecked,
         toggleAll: toggleAll, toggleOne: toggleOne, resetFilters: resetFilters,
@@ -195,16 +216,23 @@
     },
     template: [
       '<div>',
+      /* 角色提示条：本页写操作对临床置灰的原因说明（导航隐藏后仍可能经工作台待办进入） */
+      '  <mr-role-notice v-if="!canArchive"',
+      '    text="当前账号为临床医师，病案归档页仅可查询与查看详情：病案登记、归档、批量归档均需病案室权限，相关按钮已置灰（悬停可见原因）。"',
+      '  ></mr-role-notice>',
       '  <div class="card">',
       '    <div class="card-head">',
       '      <h3>病案归档管理</h3>',
       '      <span class="sub">住院病案的登记、归档与流转跟踪</span>',
       '      <div class="right">',
+      /* 「导出清单」是前端 U.exportCSV 本地导出，不调后端接口 → 无权限问题，对两角色都保留 */
       '        <button class="btn btn-default" @click="exportCSV">导出清单</button>',
-      '        <button class="btn btn-default" :disabled="!selected.length" @click="archiveSelected">',
+      '        <button class="btn btn-default" :disabled="!selected.length || !canArchive"',
+      '                :title="canArchive ? \'\' : denyHint" @click="archiveSelected">',
       '          批量归档<span v-if="selected.length">（{{ pendingSelected().length }}）</span>',
       '        </button>',
-      '        <button class="btn btn-primary" @click="openAdd">+ 病案登记</button>',
+      '        <button class="btn btn-primary" :disabled="!canRegister"',
+      '                :title="canRegister ? \'\' : denyHint" @click="openAdd">+ 病案登记</button>',
       '      </div>',
       '    </div>',
       '    <div class="card-body tight" style="border-bottom:1px solid var(--border)">',
@@ -263,7 +291,11 @@
       '            <td>',
       '              <div class="actions">',
       '                <button class="link-btn" @click="detail = r">详情</button>',
-      '                <button class="link-btn" v-if="r.status === \'未归档\'" @click="archiveOne(r)">归档</button>',
+      /* 归档是 ADMIN only（POST /archives/recycle）：置灰 + 灰色字（.link-btn 无 :disabled 样式）
+         + title 原因，避免临床误以为"点了没反应=系统坏了" */
+      '                <button v-if="r.status === \'未归档\'" class="link-btn" :class="{ muted: !canArchive }"',
+      '                        :disabled="!canArchive" :title="canArchive ? \'\' : denyHint"',
+      '                        @click="archiveOne(r)">归档</button>',
       '                <button class="link-btn danger" @click="removeOne(r)">删除</button>',
       '              </div>',
       '            </td>',
@@ -323,6 +355,7 @@
       '      <div class="drawer-foot">',
       '        <button class="btn btn-default" @click="detail = null">关闭</button>',
       '        <button v-if="detail.status === \'未归档\'" class="btn btn-primary"',
+      '                :disabled="!canArchive" :title="canArchive ? \'\' : denyHint"',
       '                @click="archiveOne(detail); detail = null">确认归档</button>',
       '      </div>',
       '    </div>',
@@ -398,7 +431,8 @@
       '    </div>',
       '    <template #foot>',
       '      <button class="btn btn-default" @click="showAdd = false">取消</button>',
-      '      <button class="btn btn-primary" @click="submitAdd">保存并登记</button>',
+      '      <button class="btn btn-primary" :disabled="!canRegister"',
+      '              :title="canRegister ? \'\' : denyHint" @click="submitAdd">保存并登记</button>',
       '    </template>',
       '  </mr-modal>',
       '</div>'

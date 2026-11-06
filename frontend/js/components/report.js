@@ -11,10 +11,25 @@
     components: {
       MrEmpty: MRCommon.MrEmpty,
       MrModal: MRCommon.MrModal,
-      MrProgress: MRCommon.MrProgress
+      MrProgress: MRCommon.MrProgress,
+      MrRoleNotice: MRCommon.MrRoleNotice
     },
     setup: function () {
       var S = MRMS.state, A = MRMS.actions, St = MRMS.stats, U = MRMS.util;
+
+      /* ---------------- 角色能力门控（2026-10-09，本文件归属本次改动） ----------------
+         本页后端权限已逐个核对（router.go 上报段 + branch_ext.go 任务8）：
+           ADMIN only：POST /report-batches（新建批次）、POST /report-batches/:id/submit（上报）、
+                       GET  /report-batches/:id/export（hqmsts_ CSV 导出）
+           登录可见 ：GET /report-batches/:id/export-check（导出前检查）、
+                       GET /report-consistency（一致性核对）
+         故只对上面 3 个 ADMIN 接口对应的控件置灰，其余保持可用——
+         尤其「导出前检查」和「一致性核对」不是 ADMIN 接口，不能一起灰掉
+         （那会把临床本来能用的能力误判为无权限）。 */
+      var canManageReport = computed(function () { return U.canManageReport(); });
+      var canExportReport = computed(function () { return U.canExportReport(); });
+      var reportHint = U.denyHint('report.manage');
+      var exportHint = U.denyHint('report.export');
 
       var selected = ref(null);
       var showCreate = ref(false);
@@ -69,6 +84,7 @@
       }
 
       function createBatch() {
+        if (!canManageReport.value) { A.toast(reportHint, 'err'); return; }
         if (!newPeriod.value) { A.toast('请选择上报周期', 'err'); return; }
         if (!periodRecords(newPeriod.value).length) {
           A.toast('该周期暂无可上报的已编目病案', 'err');
@@ -81,6 +97,7 @@
       }
 
       function doSubmit() {
+        if (!canManageReport.value) { A.toast(reportHint, 'err'); return; }
         var rep = selected.value;
         if (!rep) { A.toast('请先选择上报批次', 'err'); return; }
         if (rep.status === '已接收') { A.toast('该批次已接收，无需重复上报', 'err'); return; }
@@ -172,7 +189,9 @@
       }
 
       // 导出符合国家接口标准的 CSV（文件名以 hqmsts_ 开头）
+      // GET /report-batches/:id/export 在 admin 组（ADMIN only），临床调用必 403
       function downloadCsv() {
+        if (!canExportReport.value) { A.toast(exportHint, 'err'); return; }
         var rep = selected.value;
         if (!rep) { A.toast('请先选择上报批次', 'err'); return; }
         if (!rep._bid) { A.toast('批次尚未落库完成，请稍后重试', 'err'); return; }
@@ -201,6 +220,9 @@
 
       return {
         S: S, U: U, batches: batches, selected: selected, check: check, mast: mast,
+        // 角色能力门控（模板里用 canManageReport / canExportReport 与提示文案）
+        canManageReport: canManageReport, canExportReport: canExportReport,
+        reportHint: reportHint, exportHint: exportHint,
         showCreate: showCreate, newPeriod: newPeriod, periodOptions: periodOptions,
         createBatch: createBatch, doSubmit: doSubmit, exportPackage: exportPackage,
         exportIssues: exportIssues, fieldSpec: fieldSpec, tone: MRCommon.mrTone,
@@ -213,6 +235,11 @@
     },
     template: [
       '<div>',
+      /* 角色提示条：本页 ADMIN-only 操作对临床置灰的原因说明。
+         注意措辞只列真的会 403 的三项——「导出前检查」「一致性核对」登录即可用。 */
+      '  <mr-role-notice v-if="!canManageReport"',
+      '    text="当前账号为临床医师：上报批次的新建与提交、以及国家接口标准 CSV 导出需病案室权限，相关按钮已置灰（悬停可见原因）；导出前检查、上报一致性核对与各类清单查看不受影响。"',
+      '  ></mr-role-notice>',
       '  <div class="grid g-4">',
       '    <div class="card kpi">',
       '      <div class="k-top"><div class="k-ico bg-orange"><i class="ri-file-upload-line"></i></div><span class="k-label">待上报病案</span></div>',
@@ -243,9 +270,12 @@
       '        <h3>上报批次管理</h3>',
       '        <span class="sub">按自然月组织上报数据</span>',
       '        <div class="right">',
-      /* 任务10：一致性核对入口（核对当前选中批次的上报周期） */
+      /* 任务10：一致性核对入口（核对当前选中批次的上报周期）
+         —— GET /report-consistency 只挂 auth 组，临床可用，**不门控** */
       '          <button class="btn btn-default" @click="runConsistency"><i class="ri-git-compare-line"></i> 一致性核对</button>',
-      '          <button class="btn btn-primary" @click="showCreate = true">+ 新建批次</button>',
+      /* 新建批次 = POST /report-batches（ADMIN only）→ 置灰 + 原因 */
+      '          <button class="btn btn-primary" :disabled="!canManageReport"',
+      '                  :title="canManageReport ? \'\' : reportHint" @click="showCreate = true">+ 新建批次</button>',
       '        </div>',
       '      </div>',
       '      <div class="table-wrap">',
@@ -309,12 +339,17 @@
       '            </div>',
       '          </div>',
       '          <div class="flex gap-8 mt-16" style="flex-wrap:wrap">',
+      /* 导出问题清单 / 导出数据包 = 前端本地 CSV/JSON 导出，不调后端接口，两角色都保留 */
       '            <button class="btn btn-default btn-sm" @click="exportIssues">导出问题清单</button>',
       '            <button class="btn btn-default btn-sm" @click="exportPackage">导出数据包</button>',
-      /* 任务8：导出前检查 + 导出国家接口标准 CSV（hqmsts_） */
+      /* 任务8：导出前检查 = GET /:id/export-check（登录可见，不门控）；导出 CSV = ADMIN only */
       '            <button class="btn btn-default btn-sm" @click="runExportCheck"><i class="ri-checkbox-multiple-line"></i> 导出前检查</button>',
-      '            <button class="btn btn-default btn-sm" @click="downloadCsv"><i class="ri-download-2-line"></i> 导出 CSV</button>',
-      '            <button class="btn btn-primary btn-sm ml-auto" @click="doSubmit">',
+      '            <button class="btn btn-default btn-sm" :disabled="!canExportReport"',
+      '                    :title="canExportReport ? \'\' : exportHint" @click="downloadCsv">',
+      '              <i class="ri-download-2-line"></i> 导出 CSV</button>',
+      /* 执行上报 = POST /report-batches/:id/submit（ADMIN only）→ 置灰 + 原因 */
+      '            <button class="btn btn-primary btn-sm ml-auto" :disabled="!canManageReport"',
+      '                    :title="canManageReport ? \'\' : reportHint" @click="doSubmit">',
       '              {{ selected.status === \'已接收\' ? "已完成上报" : "执行上报" }}',
       '            </button>',
       '          </div>',
@@ -415,7 +450,8 @@
       '    </div>',
       '    <template #foot>',
       '      <button class="btn btn-default" @click="showCreate = false">取消</button>',
-      '      <button class="btn btn-primary" @click="createBatch">创建批次</button>',
+      '      <button class="btn btn-primary" :disabled="!canManageReport"',
+      '              :title="canManageReport ? \'\' : reportHint" @click="createBatch">创建批次</button>',
       '    </template>',
       '  </mr-modal>',
 
@@ -448,7 +484,9 @@
       '    </template>',
       '    <template #foot>',
       '      <button class="btn btn-default" @click="showExportCheck = false">关闭</button>',
-      '      <button class="btn btn-primary" @click="downloadCsv"><i class="ri-download-2-line"></i> 导出 CSV</button>',
+      '      <button class="btn btn-primary" :disabled="!canExportReport"',
+      '              :title="canExportReport ? \'\' : exportHint" @click="downloadCsv">',
+      '        <i class="ri-download-2-line"></i> 导出 CSV</button>',
       '    </template>',
       '  </mr-modal>',
       '</div>'

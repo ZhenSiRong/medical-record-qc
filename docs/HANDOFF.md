@@ -123,11 +123,14 @@ python tools/check-api-coverage.py   # 契约覆盖度人工复核
 - `.env` 里的 `OPENCODE_ZEN_*` 三个键**已作废**（后端从未读过）
 - **待定**：embedding 模型型号、本地推理服务形态、TopK、字典向量化时机
 
-### ADR-0002（DRG 严重度预警）—— **批次 A/B 已做，C/D 未做**
+### ADR-0002（DRG 严重度预警）—— **批次 A/B 接线已做，C/D 未做**
 - ✅ **批次 A**：ICD-10 24 → 121 条（MCC 31 / CC 43 / 非 CC 23）；`SeedIcdExt` 幂等
-- ✅ **批次 B（部分）**：`otherDiagnosisFlags` 字段 + 解析层（`service/other_diagnosis.go`）+ 判读层（`service/ccmcc.go`，16 条 **Source=demo** 规则）
-- ❌ **未接线**：`frontpage.Save` **没有**调用 `ParseOtherDiagnoses`，所以"重复编码/长度不等拒绝"**尚未在 HTTP 路径生效**
-- ❌ **批次 C**：低靠（漏编）/高靠（套高）检测**未接入 `qc_rule` 质控闭环**
+- ✅ **批次 B（含接线）**：`otherDiagnosisFlags` 字段 + 解析层（`service/other_diagnosis.go`）+ 判读层（`service/ccmcc.go`，16 条 **Source=demo** 规则）
+- ✅ **批次 B 接线（2026-10-16 补完）**：
+  - 新增写路径入口 `service.CanonicalizeOtherDiagnoses`（= `Parse` + `Format`，出错原样回显入参）；`frontpage.Save` 在**事务之前**调用它 → "重复编码 / 长度不等 / 非法标记"现在 **400 拒绝**（`msg` 形如 `其他诊断数据不合法：…`），脏数据不再进库；`other_diagnosis_flags` 已显式列入 `Save` 白名单
+  - 前端 `api-store.js` 的 `FP_TEXT` 同步补入 `otherDiagnosisFlags`（此前**漏传** → 后端「全量赋值」会把该列清空，与缺口 D3 同类数据丢失）
+  - 守卫测试 `internal/handler/frontpage_otherdiag_test.go`：用「nil DB」技巧断言**校验先于数据库**（非法→400；合法→越过校验撞 nil DB→500，500 不是 bug 而是放行证据）；配合 `service/other_diagnosis_test.go` 的 `CanonicalizeOtherDiagnoses` 三组测试。**负控制已做**：注入旁路后该测试变红且精确指认「期望 400 实际 500」，逐字节还原（sha256 一致）
+- ❌ **批次 C**：低靠（漏编）/高靠（套高）检测**未接入 `qc_rule` 质控闭环**（评估与首选建议见 `docs/adr/0002-批次C-D与落表评估.md`）
 - ❌ **批次 D**：前端严重度分层预览未做
 - ❌ `cc_mcc_rule` 仍是 **Go 内存规则集**，未落表（ADR 要求"可替换+版本化"）
 - **待确认（阻塞"用官方表"）**：设计单位是否持有医保局 2.0 版 CHS-DRG 分组方案 / CC-MCC 表
@@ -159,6 +162,8 @@ python tools/check-api-coverage.py   # 契约覆盖度人工复核
 | 契约覆盖度 | ✅ `TestApiCoverage` 双向核对 **94/94 = 100%** |
 | 前端调用 ↔ 路由核对 | ✅ `TestFrontendCallsResolveToRegisteredRoutes`：51 条请求全匹配 |
 | 前端 15 个 JS 语法 | ✅ `node --check` 全通过 |
+| **本轮负控制（批次 B 接线，2026-10-16）** | ✅ 注入旁路校验后 `frontpage_otherdiag_test.go` **变红并精确指认**「期望 400 实际 500」，不依赖校验的用例仍绿；逐字节还原后 `frontpage.go` sha256 与注入前一致 |
+| **行为规范可执行化（2026-10-16 新增）** | ✅ `features/*.feature`（Gherkin）+ `internal/bdd`（godog）：**11 场景 / 36 步全过**，HTTP 层、真实全量路由、db=nil 自足。负控制已做：注入旁路后**恰好 4 条「拒绝」场景变红**、放行类与权限闸门类仍绿，逐字节还原 sha256 一致 |
 | **浏览器视觉验证** | ⚠️ **做得很有限**。候选工具在 Node 里用真实 Vue 运行时做了"模板编译 + `setup()` 逻辑断言"（114 项），但**没有渲染像素** |
 | **真库端到端** | ✅ 做过关键路径：D4 闭环（退回→临床可见→补填→质控通过→移出清单）、D9（重跑质控后痕迹逐字段一致）、归档锁定 409、陈志远编目后自动上架 |
 
@@ -183,12 +188,13 @@ API key（opencode zen，**已作废但仍存于** `.env`）在 `.env`（已被 
 | 功能说明与操作指南 | `docs/extension-guide.html` |
 | 接口契约 | `mrs-backend/docs/API.md`（94 条，含变更记录与勘误） |
 | 契约核对证据 | `mrs-backend/routes.diff.md`、核对脚本 `mrs-backend/tools/check-api-coverage.py` |
+| **行为规范（可执行）** | `mrs-backend/features/*.feature`（Gherkin，权威源与范围写在各文件头部）+ 驱动套件 `mrs-backend/internal/bdd/`（godog）；运行 `cd mrs-backend && go test ./internal/bdd/ -count=1`；约定见 `features/README.md` |
 | 需求依据 | `docs/research/A1-病案科岗位与痛点.md`、`A2-政策绩效驱动需求.md` |
 | 需求匹配度分析 | `docs/research/user-match.html` |
 | 原型基线与决策 | `prototype/BASELINE.md`、`prototype/review.html`、`prototype/STORIES.md` |
 | 截图素材 | `prototype/screenshots/`（`final/` 定稿七屏、`ext/` 扩展功能、`e2e/` 早期联调） |
 | 后端源码 | `mrs-backend/`（`internal/{handler,service,model,router,seed}`） |
-| **守卫性测试** | `internal/router/{contract_test.go,frontend_calls_test.go}`、`internal/service/{other_diagnosis_test.go,ccmcc_test.go,qc_condition_d3_test.go,qcengine_upsert_d9_test.go}`、`internal/handler/qc_ext_d4_test.go`、`internal/seed/icd_ext_test.go` |
+| **守卫性测试** | `internal/router/{contract_test.go,frontend_calls_test.go}`、`internal/service/{other_diagnosis_test.go,ccmcc_test.go,qc_condition_d3_test.go,qcengine_upsert_d9_test.go}`、`internal/handler/{qc_ext_d4_test.go,frontpage_otherdiag_test.go}`、`internal/seed/icd_ext_test.go`、**`internal/bdd/bdd_test.go`（行为套件，驱动 `features/`）** |
 | 前端源码 | `frontend/`（`js/api-store.js` 适配层 + `js/components/*.js`） |
 | 启停脚本 | `tools/demo-start.cmd`、`tools/demo-stop.cmd` |
 

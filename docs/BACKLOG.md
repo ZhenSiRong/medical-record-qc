@@ -38,6 +38,69 @@
 | **D4** | ✅ 完成 | 新增 `GET /api/qc-results/my-pending`（临床侧按本科室、病案室全院督办）；`rectify` 权限收紧为 `DEPT_USER`+`ADMIN` 并对临床侧追加本科室校验；新增前端页 `frontend/js/components/rectify.js`（我的待整改 / 整改督办，按角色切换文案）；`layout.js` 新增角色门控；新增 `internal/handler/qc_ext_d4_test.go` |
 | **D9（新发现）** | ✅ 已修 | `RunQc` 改为同键增量 upsert，重跑质控不再清空退回/整改/复核痕迹；新增 `internal/service/qcengine_upsert_d9_test.go`（16 个用例，含幂等与痕迹零漂移断言）。遗留：并发两次质控无唯一约束（重复键只在下次质控收敛）；已修正项仍删除（痕迹只进日志）；CLOSED 项再次命中不重开、回归信号偏弱 |
 
+### 已落地（2026-10-16，未提交）
+
+| # | 状态 | 交付 |
+|---|---|---|
+| **ADR-0002 批次 B 接线** | ✅ 完成 | 新增写路径入口 `service.CanonicalizeOtherDiagnoses`（校验+规范化，出错原样回显入参），`frontpage.Save` 在**事务前**调用：「重复编码 / 长度不等 / 非法标记」→ **400 拒绝**；`other_diagnosis_flags` 显式入 `Save` 白名单；前端 `api-store.js` 的 `FP_TEXT` 补入 `otherDiagnosisFlags`（此前漏传 → 后端全量赋值会清空该列，与 D3 同类数据丢失）。守卫测试 `internal/handler/frontpage_otherdiag_test.go`（nil-DB 技巧证「校验先于库」）+ `service/other_diagnosis_test.go` 三组用例；**负控制已做**（注入旁路→变红并精确指位→逐字节还原，sha256 一致）。契约总数不变（仍 94/94 = 100%） |
+| **ADR-0002 批次 C/D + `cc_mcc_rule` 落表** | ⏳ 评估完成，待开工 | 三项判定与实施序列见 `docs/adr/0002-批次C-D与落表评估.md`。摘要：**批次 C（低靠/高靠接入 `qc_rule`）= 首选**，不需官方表、不需新表，只加两个 WARN 级规则类型即可复用 `RunQc` 闭环；`cc_mcc_rule` 落表建议与 C 同批（单独落表目前只是把死代码挪进库，`JudgeSeverity` 尚无生产调用方）；批次 D 有前置（后端无返回严重度的接口、前端无 flags 录入 UI、种子首页其他诊断全空） |
+| **行为规范可执行化（BDD 层）** | ✅ 完成（新增能力，非既有待办） | 新增 `mrs-backend/features/*.feature`（Gherkin，**只做引用不定义规则**，权威源＝SPEC §2.2 状态机 + API.md）+ 驱动套件 `mrs-backend/internal/bdd/`（godog，留在 `go test` 门禁内，不新增语言/CI）。当前覆盖「首页其他诊断写路径校验」与「接口权限闸门」两域，**11 场景 / 36 步全过**；真实全量路由 + db=nil 自足。已做负控制。**未做**：状态机流转类场景（需真库）、活服务 e2e（可按需另起 pytest-bdd 引用同一批 `.feature`） |
+
+### 进行中（2026-10-16）
+
+| # | 状态 | 内容 |
+|---|---|---|
+| **自迭代开发循环 v0.1 · 试运行启动** | 🔄 进行中 | 四项拍板（命名 = 自迭代开发循环；专家先启用 1 位；MedWork = 京医千询基座垂直领域 Agent · 远期插槽；元评审 = 下一议题）见 `docs/自迭代开发循环-v0.1.md` §6.0；首轮评审包已备 `docs/专家评审包/批次C-CC-MCC口径-评审包-v1.md`，随**批次 C** 送审（实现开工前的设计评审），回执按转译铁律落盘 |
+
+### 已落地（2026-10-27，未提交）
+
+| # | 状态 | 交付 |
+|---|---|---|
+| **ADR-0002 批次 C（低靠 / 高靠接入质控闭环）** | ✅ 完成 | 检测纯函数 `service/ccmcc_qc.go`（30 测试 / 96.5% 覆盖，负控制已做）；`qcengine.go` 扩展分支接入 `CC_MCC_LOW` / `CC_MCC_HIGH`，规则集**库优先、读不到降级演示表**（fail-soft，且空规则集不再静默）；`model/record.go` 加两个规则类型常量；种子 `seed/ccmcc_ext.go` 灌两条 **WARN** 规则 + 三份演示病案（低靠 / 高靠 / 负控制） |
+| **`cc_mcc_rule` 落表** | ✅ 完成 | `model/ccmcc.go` + `service/ccmcc_store.go`（`LoadCcMccRules(db, version)`，空版本 fail-closed）；`main.go` AutoMigrate 登记 + 种子幂等灌 16 条 demo 规则。**故意不建唯一索引**（理由见模型注释：避免已有库 AutoMigrate 建索引失败 → 启动 Fatal） |
+| **批次 D 后端出口** | ✅ 完成 | `handler/ccmcc_preview.go`：`POST /api/ccmcc-preview`（支持 `recordId` 与直接传码两种形态），响应**必带** `disclaimer`；契约 94 → **95/95 = 100%** |
+| **批次 D 前端** | ✅ 完成 | 新组件 `frontend/js/components/ccmcc.js`；`catalog.js` 加「CC/MCC 严重度预览」入口与弹窗（含其他诊断填报）；`api-store.js` 加 `ccmccPreview`；`index.html` 加 script |
+| **专家回执** | ✅ 完成 | `docs/专家评审包/批次C-CC-MCC口径-回执-v1.md`（傅医保，答送审包 7 问） |
+
+**门禁**：build / vet / `go test ./... -count=1` 全绿；`gofmt -l` 空；15 个前端 JS `node --check` 全过；契约 95/95。
+
+**本轮登记的缺口**：
+- 错位脏数据（`other_diagnosis_flags` 与 `codes` 长度不等）在 CC/MCC 检测里是**静默**的（合法脏数据不做 WARN）→ 需新增规则类型；
+- 「跨 MDC 且标 MCC」的高靠粗筛（需 MDC 分组数据）；
+- 质控预警的「按科室月度视角」；
+- 演示表条目补全（E11.2/.4/.5/.7、E86、T80–T88、N18.4）；
+- 「结算口径 vs 院内质控口径」的边界说明补进 ADR-0002 §6。
+
+#### 端到端实机验证（2026-10-27，截图 + 录屏）
+
+**产物**：`docs/screenshots/01-login`…`08-qc-with-ccmcc`（1680×1050 静态图）、`docs/screenshots/ccmcc-demo-20261027.webm`（3.7M 录屏）、驱动脚本 `tools/shot-ccmcc.js`（`SHOT_VIDEO=1` 开录屏，可复跑）。
+
+**动线**：登录 → 病案编目 → 选病案（`recordId=9`）→ 质控工作台 → CC/MCC 严重度预览 → 填报其他诊断 → 保存并重新判读 → 跑质控 → 回看质控项。
+
+**实测结论**：两条 WARN 都落库并上屏——`ruleId=15 CC_MCC_LOW`（`OtherDiagnosisCodes`，I50.900 判读 MCC 却标 0）、`ruleId=16 CC_MCC_HIGH`（`OtherDiagnosisFlags`，K80.201 演示表无条目却标 C）；质量评分 **90 分 / 甲级 / 错误 0 / 警报 2**、首页状态 `QC_PASSED`。⇒ **「WARN 提示核对、不拦截」这条设计意图在真实界面上成立**，不是纸上结论。
+
+#### 验证过程中修掉的三个实机缺陷（单测全绿也拦不住的那类）
+
+| # | 症状 | 根因 | 修法 |
+|---|---|---|---|
+| 1 | 预览弹窗恒显「暂无判读结果」，控制台一个错都不报 | `api-store.js` 的 `req()` 已经 `return json.data`（第 51 行），`E.call` 又原样透传，而 `catalog.js` 再取了一层 `r.data` ⇒ `undefined` | `catalog.js` 改为 `(r && typeof r === 'object') ? r : null`，并把层级约定写进注释 |
+| 2 | 「保存并重新判读」后编辑框仍显示保存前的值，看着像保存失败 | 复用的是**打开工作台那一刻**的 `qcData.frontPage` 旧快照，保存后没重拉 | `saveCcmccOtherDiag` 保存后 `GET /front-pages/:rid` 刷新 `qcData.frontPage` 再 `runCcmcc`；脚本里改成「先存干扰值 M,M、再存目标值 0,C」的两轮负控制，否则库值与快照相同、缺陷会被完全掩盖 |
+| 3 | 静态服务 `favicon.ico` 404（控制台噪音一条） | 8090 未放置该文件 | 无害，**登记不修** |
+
+另：CC/MCC 预览 + 其他诊断填报此前只被单测覆盖，缺端到端断言 —— 现已由 `tools/shot-ccmcc.js` 承担（含 `CCMCC_RENDERED` / `SNAPSHOT_REFRESHED` / `QC_CCMCC_HITS` 三个程序化断言，不靠肉眼看图判绿）。**遗留**：该脚本尚未进 `go test` 门禁（建议由 pytest-bdd 引用同一批 `.feature`，或直接固化为 CI 步骤）。
+
+#### 本轮三条行为复盘（比起缺陷本身更值钱）
+
+1. **基于旧快照判别人的活没干**：duplicate case 与测试期望串两次被判「未修」，均被施工单元的时间线证据推翻。已立规矩：**以 `go test` exit code 为唯一判据，回执只作补充**。
+2. **演示数据会骗人**：`other_diagnosis_flags` 与 `codes` **按位一一对应**，本轮先填成 `C,0`（本意要 `0,C`），结果 I50/K80 都因「判读与标记一致」被**正确沉默**——症状与「规则没落库」一模一样，我差点又去查库。⇒ 端到端脚本里的断言数据必须先理清语义，且要让成功路径与失败路径产生**可区分的**输出。
+3. **日志统计口径不能拍脑袋**：按 `r.ruleType` 统计命中数，可响应里根本没有这个字段，低靠那条因此被漏数成「命中 1 条」（实际 2 条），再一次把「我数错了」演成「功能少了」。⇒ **日志里凡依赖响应字段的统计，先把原始结构打印一份再写过滤器**。
+
+#### 执行约定补充（第 10–12 条）
+
+- **第 10 条**：改文案必须同步改测试期望串，且期望串**保持硬编码**（不许改成引用实现常量，否则失去「捕获文案意外变化」的能力）。
+- **第 11 条**：前端 RPC 响应层级 —— `req()` 返回的是 `json.data`，调用方**不得**再解一层（见缺陷 1）。
+- **第 12 条**：改任何 `catalog.js` / `layout.js` / `ccmcc.js` 后必须 bump `index.html` 里的 `?v=` 版本号（本轮 `catalog.js` 由 `20260921d` → `20261027`），否则浏览器缓存会让改动对用户不可见。
+
 ### 清单
 
 | # | 缺口（一句话） | 涉及文件 / 模块 | 预估工作量 | 依据 |

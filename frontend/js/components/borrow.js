@@ -11,10 +11,26 @@
     components: {
       MrPager: MRCommon.MrPager,
       MrEmpty: MRCommon.MrEmpty,
-      MrModal: MRCommon.MrModal
+      MrModal: MRCommon.MrModal,
+      MrRoleNotice: MRCommon.MrRoleNotice
     },
     setup: function () {
       var S = MRMS.state, A = MRMS.actions, U = MRMS.util;
+
+      /* ---------------- 角色能力门控（2026-10-09，本文件归属本次改动） ----------------
+         后端权限现状（router.go 借阅段）：
+           临床合法可用：POST /borrows（申请）、PUT /borrows/:id/renew（续借）
+           ADMIN only  ：PUT /borrows/:id/approve（通过/驳回）、PUT /borrows/:id/lend（借出）、
+                         PUT /borrows/:id/return（归还）、
+                         POST /borrow-ledger/:id/remind（人工催还）
+         故本页只对「审批类」操作置灰：申请与续借必须保留，否则临床无法借阅。
+         置灰 + 原因提示（不隐藏），判据取自适配层能力表。 */
+      var canApprove = computed(function () { return U.canApproveBorrow(); });
+      var canReturn = computed(function () { return U.canReturnBorrow(); });
+      var canApply = computed(function () { return U.canApplyBorrow(); });
+      // 通过/驳回同属「审批」，共用一个提示文案
+      var approveHint = U.denyHint('borrow.approve');
+      var returnHint = U.denyHint('borrow.return');
 
       var filters = reactive({ keyword: '', status: 'all' });
       var page = ref(1);
@@ -74,6 +90,7 @@
       });
 
       function openApply() {
+        if (!canApply.value) { A.toast(U.denyHint('borrow.apply'), 'err'); return; }
         form.mrNo = '';
         form.borrower = S.currentUser.name;
         form.borrowerDept = '普通外科';
@@ -106,11 +123,23 @@
       }
 
       /* ------------------ 流转操作 ------------------ */
-      function approve(b) { A.approveBorrow(b.id); A.toast('已批准借阅：' + b.id + '，请提醒按期归还'); }
-      function giveBack(b) { A.returnBorrow(b.id); A.toast('病案 ' + b.mrNo + ' 已登记归还'); }
+      // 审批/借出/归还均 ADMIN only：函数内再判一次，作为按钮置灰之外的第二道防线
+      // （防止经键盘/脚本绕过 disabled 直接触发）。
+      function approve(b) {
+        if (!canApprove.value) { A.toast(approveHint, 'err'); return; }
+        A.approveBorrow(b.id); A.toast('已批准借阅：' + b.id + '，请提醒按期归还');
+      }
+      function giveBack(b) {
+        if (!canReturn.value) { A.toast(returnHint, 'err'); return; }
+        A.returnBorrow(b.id); A.toast('病案 ' + b.mrNo + ' 已登记归还');
+      }
       function renew(b) { A.renewBorrow(b.id, 7); A.toast('已续借 7 天，新应还日期更新'); }
-      function openReject(b) { rejectTarget.value = b; rejectRemark.value = ''; }
+      function openReject(b) {
+        if (!canApprove.value) { A.toast(approveHint, 'err'); return; }
+        rejectTarget.value = b; rejectRemark.value = '';
+      }
       function confirmReject() {
+        if (!canApprove.value) { A.toast(approveHint, 'err'); return; }
         A.rejectBorrow(rejectTarget.value.id, rejectRemark.value || '审批未通过');
         A.toast('已驳回借阅申请');
         rejectTarget.value = null;
@@ -129,6 +158,9 @@
 
       return {
         S: S, U: U, filters: filters, page: page, size: size,
+        // 角色能力门控（模板里用 canApprove / canReturn / canApply 与提示文案）
+        canApprove: canApprove, canReturn: canReturn, canApply: canApply,
+        approveHint: approveHint, returnHint: returnHint,
         list: list, paged: paged, mast: mast, form: form, showApply: showApply,
         borrowable: borrowable, openApply: openApply, submitApply: submitApply,
         approve: approve, giveBack: giveBack, renew: renew,
@@ -139,6 +171,10 @@
     },
     template: [
       '<div>',
+      /* 角色提示条：本页「审批类」操作对临床置灰的原因说明（申请/续借不受影响） */
+      '  <mr-role-notice v-if="!canApprove"',
+      '    text="当前账号为临床医师：可以提交借阅申请与续借；通过 / 驳回 / 归还（借阅审批与归还核销）需病案室权限，相关按钮已置灰（悬停可见原因）。"',
+      '  ></mr-role-notice>',
       '  <div class="grid g-4">',
       '    <div class="card kpi">',
       '      <div class="k-top"><div class="k-ico bg-blue"><i class="ri-book-2-line"></i></div><span class="k-label">在借病案</span></div>',
@@ -168,7 +204,9 @@
       '      <span class="sub">按《医疗机构病案管理规定》执行借阅审批与归还登记</span>',
       '      <div class="right">',
       '        <button class="btn btn-default" @click="exportCSV">导出台账</button>',
-      '        <button class="btn btn-primary" @click="openApply">+ 借阅申请</button>',
+      /* 借阅申请是临床合法能力（POST /borrows 只挂 auth 组），保持可用 */
+      '        <button class="btn btn-primary" :disabled="!canApply"',
+      '                :title="canApply ? \'\' : U.denyHint(\'borrow.apply\')" @click="openApply">+ 借阅申请</button>',
       '      </div>',
       '    </div>',
       '    <div class="card-body tight" style="border-bottom:1px solid var(--border)">',
@@ -211,11 +249,23 @@
       '            <td><span class="badge" :class="tone(b.effStatus)">{{ b.effStatus }}</span></td>',
       '            <td>',
       '              <div class="actions">',
-      '                <button v-if="b.effStatus === \'待审批\'" class="link-btn" @click="approve(b)">通过</button>',
-      '                <button v-if="b.effStatus === \'待审批\'" class="link-btn danger" @click="openReject(b)">驳回</button>',
-      '                <button v-if="b.effStatus === \'已借出\'" class="link-btn" @click="giveBack(b)">归还</button>',
-      '                <button v-if="b.effStatus === \'已逾期\'" class="link-btn" @click="giveBack(b)">归还</button>',
-      '                <button v-if="b.effStatus === \'已借出\'" class="link-btn muted" @click="renew(b)">续借</button>',
+      /* 审批类操作（通过/驳回/归还）ADMIN only → 置灰 + 灰字 + title 原因；
+         借阅申请与续借是临床合法能力，保持可用。 */
+      '                <button v-if="b.effStatus === \'待审批\'" class="link-btn" :class="{ muted: !canApprove }"',
+      '                        :disabled="!canApprove" :title="canApprove ? \'\' : approveHint"',
+      '                        @click="approve(b)">通过</button>',
+      '                <button v-if="b.effStatus === \'待审批\'" class="link-btn danger" :class="{ muted: !canApprove }"',
+      '                        :disabled="!canApprove" :title="canApprove ? \'\' : approveHint"',
+      '                        @click="openReject(b)">驳回</button>',
+      '                <button v-if="b.effStatus === \'已借出\'" class="link-btn" :class="{ muted: !canReturn }"',
+      '                        :disabled="!canReturn" :title="canReturn ? \'\' : returnHint"',
+      '                        @click="giveBack(b)">归还</button>',
+      '                <button v-if="b.effStatus === \'已逾期\'" class="link-btn" :class="{ muted: !canReturn }"',
+      '                        :disabled="!canReturn" :title="canReturn ? \'\' : returnHint"',
+      '                        @click="giveBack(b)">归还</button>',
+      '                <button v-if="b.effStatus === \'已借出\'" class="link-btn muted"',
+      '                        :disabled="!canApply" :title="canApply ? \'\' : U.denyHint(\'borrow.renew\')"',
+      '                        @click="renew(b)">续借</button>',
       '                <span v-if="b.effStatus === \'已归还\'" class="muted small tnum">{{ b.returnDate }} 已还</span>',
       '                <span v-if="b.effStatus === \'已驳回\'" class="muted small">—</span>',
       '              </div>',
@@ -275,7 +325,8 @@
       '    </div>',
       '    <template #foot>',
       '      <button class="btn btn-default" @click="rejectTarget = null">取消</button>',
-      '      <button class="btn btn-danger" @click="confirmReject">确认驳回</button>',
+      '      <button class="btn btn-danger" :disabled="!canApprove"',
+      '              :title="canApprove ? \'\' : approveHint" @click="confirmReject">确认驳回</button>',
       '    </template>',
       '  </mr-modal>',
       '</div>'

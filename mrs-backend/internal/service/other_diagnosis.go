@@ -218,6 +218,41 @@ func FormatOtherDiagnoses(items []OtherDiagnosisItem) (codes, flags string, err 
 		strings.Join(flagParts, otherDiagnosisSeparator), nil
 }
 
+// CanonicalizeOtherDiagnoses 是其他诊断的**写路径入口**：所有把
+// otherDiagnosisCodes/otherDiagnosisFlags 落库的代码都应经由此处，
+// 由它统一完成「校验（拒绝脏数据）+ 规范化（大小写/空格归一）」。
+//
+// 为什么必须集中在这一层、而不是让每个调用方各自 trim/转大写：
+// ADR-0002 §5 把两个字段约定为「按逗号位置等长对齐」，这是 ADR 自己承认的
+// **隐式契约**——它们在库里只是两条彼此独立的字符串列，数据库层面没有任何结构性
+// 约束能阻止二者错位。一旦脏数据（重复编码 / 长度不等 / 非法标记）落库，
+// 后续的严重度分层（SeverityLevel）与 CC/MCC 预警就会建立在错位数据之上，
+// 且错误是静默传播的（分层要么虚高、要么漏报），等到结算口径阶段才发现就来不及了。
+// 故写路径只留这一个入口：解析层拒绝不了的数据，就不许进库。
+//
+// 语义（三步，缺一不可）：
+//  1. 交给 ParseOtherDiagnoses 校验并对齐；出错时**原样返回入参**。这样调用方在
+//     上层报错时可直接回显录入原文，便于定位脏数据；部分规范化会制造"回显 ≠ 入库"
+//     的认知分裂，故一律不做。
+//  2. 解析结果为空列表（两侧皆空，或全是空槽）⇒ 返回 ("", "", nil)：空就是空，
+//     不留 ","、孤立空格这类非规范形态。
+//  3. 否则经 FormatOtherDiagnoses 产出规范化双串（编码转大写、去空格、空槽成对丢弃）。
+//
+// 本函数同样只依赖两个字符串、不碰 model.MedFrontPage 字段，保持与解析层一致的解耦，
+// 可被纯内存测试完整覆盖。
+func CanonicalizeOtherDiagnoses(codes, flags string) (string, string, error) {
+	items, err := ParseOtherDiagnoses(codes, flags)
+	if err != nil {
+		// 原样返回入参：调用方据此拒绝写入，并可用原串回显错误现场。
+		return codes, flags, err
+	}
+	if len(items) == 0 {
+		// 相邻无其他诊断（两侧皆空或全空槽）：归一为空串，不写入非规范痕迹。
+		return "", "", nil
+	}
+	return FormatOtherDiagnoses(items)
+}
+
 // ValidSeverityFlag 判断标记是否为合法严重度取值（注意：不做大小写宽容，"c" 非法）。
 func ValidSeverityFlag(flag string) bool {
 	switch flag {

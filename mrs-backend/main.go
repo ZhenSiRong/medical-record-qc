@@ -50,6 +50,8 @@ func main() {
 		// 扩展功能新增表（2026-10-09）：质量评分、变更留痕、预编码规则、DRG 分组规则
 		&model.FrontPageQuality{}, &model.FrontPageRevision{},
 		&model.CodeSuggestionRule{}, &model.DrgGroupRule{},
+		// ADR-0002 批次 C：CC/MCC 判读规则表（合规红线：表内不得出现分组码 / 权重 / 金额列）
+		&model.CcMccRule{},
 	); err != nil {
 		log.Fatalf("AutoMigrate 失败: %v", err)
 	}
@@ -66,9 +68,21 @@ func main() {
 	if err := handler.SeedBranchExt(db); err != nil {
 		log.Printf("[seed] 扩展功能种子失败(不影响启动): %v", err)
 	}
+	// ADR-0002 批次 C：CC/MCC 判读规则落库 + 两条 WARN 级质控规则（幂等，按判重键跳过已有行）
+	if err := seed.SeedCcMccRules(db); err != nil {
+		log.Printf("[seed] CC/MCC 判读规则种子失败(不影响启动): %v", err)
+	}
+	if err := seed.SeedCcMccQcRules(db); err != nil {
+		log.Printf("[seed] CC/MCC 质控规则种子失败(不影响启动): %v", err)
+	}
 	// 科室医师（deptuser）演示数据：让该账号在演示库里有可测的病案（幂等）
 	if err := seed.SeedDeptUserDemoData(db); err != nil {
 		log.Printf("[seed] 科室医师演示数据失败(不影响启动): %v", err)
+	}
+	// ADR-0002 批次 C：回填演示病案的「其他诊断编码 + 严重度标记」（依赖上一步生成的病案，故必须在其后）。
+	// 没有这份数据，低靠/高靠规则在界面上永远 0 命中（ADR §7 已列为此功能的已知缺口）。
+	if err := seed.SeedCcMccDemoCases(db); err != nil {
+		log.Printf("[seed] CC/MCC 演示病案失败(不影响启动): %v", err)
 	}
 
 	ca := cache.New(cfg.Redis.Addr, cfg.Redis.Password, cfg.Redis.DB)
